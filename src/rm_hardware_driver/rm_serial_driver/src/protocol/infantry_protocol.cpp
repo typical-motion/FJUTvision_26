@@ -59,15 +59,19 @@ std::vector<rclcpp::SubscriptionBase::SharedPtr> ProtocolInfantry::getSubscripti
 
 std::vector<rclcpp::Client<rm_interfaces::srv::SetMode>::SharedPtr> ProtocolInfantry::getClients(
   rclcpp::Node::SharedPtr node) const {
+  bool has_rune = node->declare_parameter("has_rune", false);
   auto client1 = node->create_client<rm_interfaces::srv::SetMode>("armor_detector/set_mode",
                                                                   rmw_qos_profile_services_default);
   auto client2 = node->create_client<rm_interfaces::srv::SetMode>("armor_solver/set_mode",
                                                                   rmw_qos_profile_services_default);
-  auto client3 = node->create_client<rm_interfaces::srv::SetMode>("rune_detector/set_mode",
-                                                                  rmw_qos_profile_services_default);
-  auto client4 = node->create_client<rm_interfaces::srv::SetMode>("rune_solver/set_mode",
-                                                                  rmw_qos_profile_services_default);
-  return {client1, client2, client3, client4};
+  if (has_rune) {
+    auto client3 = node->create_client<rm_interfaces::srv::SetMode>(
+      "rune_detector/set_mode", rmw_qos_profile_services_default);
+    auto client4 = node->create_client<rm_interfaces::srv::SetMode>(
+      "rune_solver/set_mode", rmw_qos_profile_services_default);
+    return {client1, client2, client3, client4};
+  }
+  return {client1, client2};
 }
 
 }  // namespace fyt::serial_driver::protocol
