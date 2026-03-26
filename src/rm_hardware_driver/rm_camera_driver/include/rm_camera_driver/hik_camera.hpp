@@ -25,6 +25,8 @@
 #include <rclcpp/utilities.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+// project
+#include "rm_utils/heartbeat.hpp"
 
 namespace fyt::camera_driver {
 
@@ -36,6 +38,7 @@ public:
 
 private:
   void declareParameters();
+  void timerCallback();
   
   rcl_interfaces::msg::SetParametersResult parametersCallback(
     const std::vector<rclcpp::Parameter> & parameters);
@@ -56,6 +59,10 @@ private:
 
   int fail_count_ = 0;
   std::thread capture_thread_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // Heartbeat
+  HeartBeatPublisher::SharedPtr heartbeat_;
 
   OnSetParametersCallbackHandle::SharedPtr params_callback_handle_;
 };
