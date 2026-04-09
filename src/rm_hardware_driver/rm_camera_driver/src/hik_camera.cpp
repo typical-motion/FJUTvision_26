@@ -55,6 +55,9 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
   auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data : rmw_qos_profile_default;
   camera_pub_ = image_transport::create_camera_publisher(this, "image_raw", qos);
 
+  // Heartbeat
+  heartbeat_ = HeartBeatPublisher::create(this);
+
   declareParameters();
 
   MV_CC_StartGrabbing(camera_handle_);
@@ -71,6 +74,11 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
   } else {
     FYT_WARN("camera_driver", "Invalid camera info URL: {}", camera_info_url_);
   }
+  camera_info_msg_.header.stamp = this->now();
+
+  // Check if camera is alive every second
+  timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(1000), std::bind(&HikCameraNode::timerCallback, this));
 
   params_callback_handle_ = this->add_on_set_parameters_callback(
     std::bind(&HikCameraNode::parametersCallback, this, std::placeholders::_1));
@@ -131,6 +139,18 @@ HikCameraNode::~HikCameraNode()
     MV_CC_DestroyHandle(&camera_handle_);
   }
   FYT_INFO("camera_driver", "HikCameraNode destroyed!");
+}
+
+void HikCameraNode::timerCallback()
+{
+  const double dt = (this->now() - rclcpp::Time(camera_info_msg_.header.stamp)).seconds();
+
+  if (dt > 5.0) {
+    FYT_WARN("camera_driver", "Camera is not alive! lost frame for {:.2f} seconds", dt);
+    MV_CC_StopGrabbing(camera_handle_);
+    MV_CC_StartGrabbing(camera_handle_);
+    fail_count_ = 0;
+  }
 }
 
 void HikCameraNode::declareParameters()
