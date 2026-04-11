@@ -25,7 +25,8 @@
 #include "rm_utils/math/utils.hpp"
 
 namespace fyt::auto_aim {
-Solver::Solver(std::weak_ptr<rclcpp::Node> n) : node_(n) {
+Solver::Solver(std::weak_ptr<rclcpp::Node> n)
+: use_tinympc_(false), last_plan_yaw_(0.0), last_plan_pitch_(0.0), node_(n) {
   auto node = node_.lock();
 
   shooting_range_w_ = node->declare_parameter("solver.shooting_range_width", 0.135);
@@ -49,6 +50,11 @@ Solver::Solver(std::weak_ptr<rclcpp::Node> n) : node_(n) {
     FYT_WARN("armor_solver", "Manual compensator update failed!");
   }
 
+  use_tinympc_ = node->declare_parameter("solver.use_tinympc", false);
+  if (use_tinympc_) {
+    tinympc_planner_ = std::make_unique<TinyMpcPlanner>(node_);
+  }
+
   state = State::TRACKING_ARMOR;
   overflow_count_ = 0;
   transfer_thresh_ = 5;
@@ -67,6 +73,10 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
     controller_delay_ = node->get_parameter("solver.controller_delay").as_double();
     side_angle_ = node->get_parameter("solver.side_angle").as_double();
     min_switching_v_yaw_ = node->get_parameter("solver.min_switching_v_yaw").as_double();
+    use_tinympc_ = node->get_parameter("solver.use_tinympc").as_bool();
+    if (use_tinympc_ && !tinympc_planner_) {
+      tinympc_planner_ = std::make_unique<TinyMpcPlanner>(node_);
+    }
     node.reset();
   } catch (const std::runtime_error &e) {
     FYT_ERROR("armor_solver", "{}", e.what());
@@ -118,6 +128,32 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
   gimbal_cmd.header = target.header;
   gimbal_cmd.distance = distance;
   gimbal_cmd.fire_advice = isOnTarget(rpy_[2], rpy_[1], yaw, pitch, distance);
+
+  if (use_tinympc_ && tinympc_planner_) {
+    auto mpc_plan = tinympc_planner_->plan(target,
+                                           current_time,
+                                           trajectory_compensator_.get(),
+                                           trajectory_compensator_->velocity,
+                                           prediction_delay_);
+    if (mpc_plan.valid) {
+      gimbal_cmd.fire_advice = mpc_plan.fire;
+      last_plan_yaw_ = mpc_plan.plan_yaw;
+      last_plan_pitch_ = mpc_plan.plan_pitch;
+
+      auto angle_offset =
+        manual_compensator_->angleHardCorrect(mpc_plan.aim_distance, mpc_plan.aim_height);
+      const double pitch_offset = angle_offset[0] * M_PI / 180.0;
+      const double yaw_offset = angle_offset[1] * M_PI / 180.0;
+      const double cmd_pitch = last_plan_pitch_ + pitch_offset;
+      const double cmd_yaw = angles::normalize_angle(last_plan_yaw_ + yaw_offset);
+
+      gimbal_cmd.yaw = cmd_yaw * 180.0 / M_PI;
+      gimbal_cmd.pitch = cmd_pitch * 180.0 / M_PI;
+      gimbal_cmd.yaw_diff = (cmd_yaw - rpy_[2]) * 180.0 / M_PI;
+      gimbal_cmd.pitch_diff = (cmd_pitch - rpy_[1]) * 180.0 / M_PI;
+      return gimbal_cmd;
+    }
+  }
 
   switch (state) {
     case TRACKING_ARMOR: {

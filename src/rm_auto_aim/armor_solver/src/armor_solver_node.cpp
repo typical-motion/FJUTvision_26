@@ -19,6 +19,8 @@
 #include "armor_solver/armor_solver_node.hpp"
 
 // std
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 // project
@@ -57,14 +59,53 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
   s2qyaw_ = declare_parameter("ekf.sigma2_q_yaw", 100.0);
   s2qr_ = declare_parameter("ekf.sigma2_q_r", 800.0);
   s2qd_zc_ = declare_parameter("ekf.sigma2_q_d_zc", 800.0);
+  declare_parameter("ekf.use_legacy_noise_model", false);
+  const double q_outpost_linear_factor =
+    declare_parameter("ekf.q_outpost_linear_factor", 0.1);
+  const double q_outpost_yaw_factor =
+    declare_parameter("ekf.q_outpost_yaw_factor", 0.001);
+  const double q_normal_linear_factor =
+    declare_parameter("ekf.q_normal_linear_factor", 1.0);
+  const double q_normal_yaw_factor =
+    declare_parameter("ekf.q_normal_yaw_factor", 1.0);
 
-  auto u_q = [this]() {
+  auto u_q = [this,
+              q_outpost_linear_factor,
+              q_outpost_yaw_factor,
+              q_normal_linear_factor,
+              q_normal_yaw_factor]() {
     Eigen::Matrix<double, X_N, X_N> q;
-    double t = dt_, x = s2qx_, y = s2qy_, z = s2qz_, yaw = s2qyaw_, r = s2qr_, d_zc=s2qd_zc_;
+    double t = dt_;
+    const bool use_legacy_noise_model =
+      this->get_parameter("ekf.use_legacy_noise_model").as_bool();
+    const bool is_outpost = tracker_ != nullptr && tracker_->tracked_id == "outpost";
+    double x = s2qx_, y = s2qy_, z = s2qz_, yaw = s2qyaw_, r = s2qr_, d_zc = s2qd_zc_;
+
+    if (!use_legacy_noise_model) {
+      if (is_outpost) {
+        x *= q_outpost_linear_factor;
+        y *= q_outpost_linear_factor;
+        z *= q_outpost_linear_factor;
+        r *= q_outpost_linear_factor;
+        d_zc *= q_outpost_linear_factor;
+        yaw *= q_outpost_yaw_factor;
+      } else {
+        x *= q_normal_linear_factor;
+        y *= q_normal_linear_factor;
+        z *= q_normal_linear_factor;
+        r *= q_normal_linear_factor;
+        d_zc *= q_normal_linear_factor;
+        yaw *= q_normal_yaw_factor;
+      }
+    }
+
     double q_x_x = pow(t, 4) / 4 * x, q_x_vx = pow(t, 3) / 2 * x, q_vx_vx = pow(t, 2) * x;
     double q_y_y = pow(t, 4) / 4 * y, q_y_vy = pow(t, 3) / 2 * y, q_vy_vy = pow(t, 2) * y;
-    double q_z_z = pow(t, 4) / 4 * x, q_z_vz = pow(t, 3) / 2 * x, q_vz_vz = pow(t, 2) * z;
-    double q_yaw_yaw = pow(t, 4) / 4 * yaw, q_yaw_vyaw = pow(t, 3) / 2 * x,
+    double q_z_z = pow(t, 4) / 4 * (use_legacy_noise_model ? x : z),
+           q_z_vz = pow(t, 3) / 2 * (use_legacy_noise_model ? x : z),
+           q_vz_vz = pow(t, 2) * z;
+    double q_yaw_yaw = pow(t, 4) / 4 * yaw,
+           q_yaw_vyaw = pow(t, 3) / 2 * (use_legacy_noise_model ? x : yaw),
            q_vyaw_vyaw = pow(t, 2) * yaw;
     double q_r = pow(t, 4) / 4 * r;
     double q_d_zc = pow(t, 4) / 4 * d_zc;
@@ -89,13 +130,47 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
   r_y_ = declare_parameter("ekf.r_y", 0.05);
   r_z_ = declare_parameter("ekf.r_z", 0.05);
   r_yaw_ = declare_parameter("ekf.r_yaw", 0.02);
-  auto u_r = [this](const Eigen::Matrix<double, Z_N, 1> &z) {
+  const double r_quality_clip = declare_parameter("ekf.r_quality_clip", 2.0);
+  const double r_position_gain = declare_parameter("ekf.r_position_gain", 6.0);
+  const double r_yaw_gain = declare_parameter("ekf.r_yaw_gain", 6.0);
+  const double r_missing_quality_scale =
+    declare_parameter("ekf.r_missing_quality_scale", 4.0);
+  auto u_r = [this,
+              r_quality_clip,
+              r_position_gain,
+              r_yaw_gain,
+              r_missing_quality_scale](const Eigen::Matrix<double, Z_N, 1> &z) {
     Eigen::Matrix<double, Z_N, Z_N> r;
+    const bool use_legacy_noise_model =
+      this->get_parameter("ekf.use_legacy_noise_model").as_bool();
+
+    if (use_legacy_noise_model) {
+      // clang-format off
+      r << r_x_ * std::abs(z[0]), 0, 0, 0,
+           0, r_y_ * std::abs(z[1]), 0, 0,
+           0, 0, r_z_ * std::abs(z[2]), 0,
+           0, 0, 0, r_yaw_;
+      // clang-format on
+      return r;
+    }
+
+    const bool has_quality = tracker_ != nullptr && tracker_->checkinit();
+    const double position_quality =
+      has_quality ? std::min(tracker_->position_diff, r_quality_clip) : r_quality_clip;
+    const double yaw_quality =
+      has_quality ? std::min(tracker_->yaw_diff, r_quality_clip) : r_quality_clip;
+    double position_scale = 1.0 + r_position_gain * std::log1p(position_quality);
+    double yaw_scale = 1.0 + r_yaw_gain * std::log1p(yaw_quality);
+    if (!has_quality) {
+      position_scale *= r_missing_quality_scale;
+      yaw_scale *= r_missing_quality_scale;
+    }
+
     // clang-format off
-    r << r_x_ * std::abs(z[0]), 0, 0, 0,
-         0, r_y_ * std::abs(z[1]), 0, 0,
-         0, 0, r_z_ * std::abs(z[2]), 0,
-         0, 0, 0, r_yaw_;
+    r << r_x_ * (std::abs(z[0]) + 0.02) * position_scale, 0, 0, 0,
+         0, r_y_ * (std::abs(z[1]) + 0.02) * position_scale, 0, 0,
+         0, 0, r_z_ * (std::abs(z[2]) + 0.02) * position_scale, 0,
+         0, 0, 0, r_yaw_ * yaw_scale;
     // clang-format on
     return r;
   };
@@ -284,6 +359,9 @@ void ArmorSolverNode::armorsCallback(const rm_interfaces::msg::Armors::SharedPtr
   rclcpp::Time time = armors_msg->header.stamp;
   target_msg.header.stamp = time;
   target_msg.header.frame_id = target_frame_;
+  target_msg.tracking = false;
+  target_msg.position_diff = -1.0;
+  target_msg.yaw_diff = -1.0;
 
 
   // Update tracker
@@ -327,6 +405,8 @@ void ArmorSolverNode::armorsCallback(const rm_interfaces::msg::Armors::SharedPtr
       target_msg.radius_2 = tracker_->another_r;
       target_msg.d_zc = state(9);
       target_msg.d_za = tracker_->d_za;
+      target_msg.position_diff = tracker_->position_diff;
+      target_msg.yaw_diff = tracker_->yaw_diff;
     }
   }
 

@@ -18,7 +18,9 @@
 
 #include "armor_solver/armor_tracker.hpp"
 // std
+#include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <memory>
 #include <string>
 // ros2
@@ -35,6 +37,10 @@
 namespace fyt::auto_aim {
 Tracker::Tracker(double max_match_distance, double max_match_yaw_diff)
 : tracker_state(LOST)
+, jumped(false)
+, isinit(false)
+, position_diff(DBL_MAX)
+, yaw_diff(DBL_MAX)
 , tracked_id(std::string(""))
 , measurement(Eigen::VectorXd::Zero(4))
 , target_state(Eigen::VectorXd::Zero(9))
@@ -42,6 +48,10 @@ Tracker::Tracker(double max_match_distance, double max_match_yaw_diff)
 , max_match_yaw_diff_(max_match_yaw_diff)
 , detect_count_(0)
 , lost_count_(0)
+, update_count_(0)
+, switch_count_(0)
+, is_switch_(false)
+, is_converged_(false)
 , last_yaw_(0) {}
 
 void Tracker::init(const Armors::SharedPtr &armors_msg) noexcept {
@@ -64,6 +74,13 @@ void Tracker::init(const Armors::SharedPtr &armors_msg) noexcept {
 
   tracked_id = tracked_armor.number;
   tracker_state = DETECTING;
+  jumped = false;
+  position_diff = DBL_MAX;
+  yaw_diff = DBL_MAX;
+  update_count_ = 0;
+  switch_count_ = 0;
+  is_switch_ = false;
+  is_converged_ = false;
 
   if (tracked_armor.type == "large" &&
       (tracked_id == "3" || tracked_id == "4" || tracked_id == "5")) {
@@ -82,6 +99,8 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
   bool matched = false;
   // Use KF prediction as default target state if no matched armor is found
   target_state = ekf_prediction;
+  position_diff = DBL_MAX;
+  yaw_diff = DBL_MAX;
 
   if (!armors_msg->armors.empty()) {
     // Find the closest armor with the same id
@@ -89,7 +108,7 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
     int same_id_armors_count = 0;
     auto predicted_position = getArmorPositionFromState(ekf_prediction);
     double min_position_diff = DBL_MAX;
-    double yaw_diff = DBL_MAX;
+    double min_yaw_diff = DBL_MAX;
     for (const auto &armor : armors_msg->armors) {
       // Only consider armors with the same id
       if (armor.number == tracked_id) {
@@ -103,7 +122,8 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
         if (position_diff < min_position_diff) {
           // Find the closest armor
           min_position_diff = position_diff;
-          yaw_diff = abs(orientationToYaw(armor.pose.orientation) - ekf_prediction(6));
+          min_yaw_diff = std::abs(
+            angles::shortest_angular_distance(ekf_prediction(6), orientationToYaw(armor.pose.orientation)));
           tracked_armor = armor;
           // Update tracked armor type
           if (tracked_armor.type == "large" &&
@@ -116,6 +136,11 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
           }
         }
       }
+    }
+
+    if (same_id_armors_count > 0) {
+      position_diff = min_position_diff;
+      yaw_diff = min_yaw_diff;
     }
 
     // Check if the distance and yaw difference of closest armor are within the
@@ -140,12 +165,17 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
   }
 
   // Prevent radius from spreading
-  if (target_state(8) < 0.12) {
-    target_state(8) = 0.12;
+  if (target_state(8) < 0.05) {
+    target_state(8) = 0.05;
     ekf->setState(target_state);
-  } else if (target_state(8) > 0.4) {
-    target_state(8) = 0.4;
+  } else if (target_state(8) > 0.5) {
+    target_state(8) = 0.5;
     ekf->setState(target_state);
+  }
+
+  update_count_++;
+  if (!is_converged_) {
+    is_converged_ = convergened();
   }
 
   // Tracking state machine
@@ -201,13 +231,15 @@ void Tracker::initEKF(const Armor &a) noexcept {
   target_state << xc, 0, yc, 0, zc, 0, yaw, 0, r, d_zc;
 
   ekf->setState(target_state);
+  isinit = true;
 }
 
 void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
+  jumped = true;
   double last_yaw = target_state(6);
   double yaw = orientationToYaw(current_armor.pose.orientation);
 
-  if (abs(yaw - last_yaw) > 0.4) {
+  if (std::abs(yaw - last_yaw) > 0.4) {
     // Armor angle also jumped, take this case as target spinning
     target_state(6) = yaw;
     // Only 4 armors has 2 radius and height
@@ -242,6 +274,31 @@ void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
 
   ekf->setState(target_state);
 }
+
+bool Tracker::diverged() const noexcept {
+  auto r_ok = target_state(8) > 0.05 && target_state(8) < 0.5;
+  auto l_ok = another_r > 0.05 && another_r < 0.5;
+
+  if (tracked_armors_num == ArmorsNum::NORMAL_4) {
+    return !(r_ok && l_ok);
+  }
+
+  return !r_ok;
+}
+
+bool Tracker::convergened() {
+  if (tracked_id != "outpost" && update_count_ > 3 && !this->diverged()) {
+    is_converged_ = true;
+  }
+
+  if (tracked_id == "outpost" && update_count_ > 10 && !this->diverged()) {
+    is_converged_ = true;
+  }
+
+  return is_converged_;
+}
+
+bool Tracker::checkinit() const noexcept { return isinit; }
 
 double Tracker::orientationToYaw(const geometry_msgs::msg::Quaternion &q) noexcept {
   // Get armor yaw

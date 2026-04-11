@@ -5,16 +5,28 @@
     max_armor_distance: 10.0
 
     ekf:
+      use_legacy_noise_model: false
+
       sigma2_q_x: 0.05
       sigma2_q_y: 0.05
       sigma2_q_z: 0.05
       sigma2_q_yaw: 1.0
       sigma2_q_r: 80.0
 
+      q_outpost_linear_factor: 0.1
+      q_outpost_yaw_factor: 0.001
+      q_normal_linear_factor: 1.0
+      q_normal_yaw_factor: 1.0
+
       r_x: 4e-4
       r_y: 4e-4
       r_z: 9e-4
       r_yaw: 5e-3
+
+      r_quality_clip: 2.0
+      r_position_gain: 6.0
+      r_yaw_gain: 6.0
+      r_missing_quality_scale: 4.0
 
     tracker:
       max_match_distance: 0.5
@@ -34,6 +46,22 @@
       gravity: 10.0
       resistance: 0.092
       iteration_times: 20 # 补偿的迭代次数
+      use_tinympc: false
+      tinympc:
+        dt: 0.01
+        yaw_offset: 0.0 # deg
+        pitch_offset: 0.0 # deg
+        fire_thresh: 0.04
+        shoot_offset: 2
+        decision_speed: 8.0
+        high_speed_delay_time: 0.12
+        low_speed_delay_time: 0.05
+        max_yaw_acc: 8.0
+        max_pitch_acc: 8.0
+        Q_yaw: [40.0, 1.0]
+        R_yaw: [40.0]
+        Q_pitch: [40.0, 1.0]
+        R_pitch: [40.0]
       # ["距离下限, 距离上限, 高度下限, 高度上限, pitch轴补偿值, yaw轴补偿值"]
       angle_offset: [
         "5.0 6.0 -1.0 0.4 0.0 0.0",

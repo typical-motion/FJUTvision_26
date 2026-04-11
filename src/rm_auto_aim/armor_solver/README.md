@@ -37,6 +37,21 @@
 * `solver.compensator_type` (`string`, default: "ideal") - 补偿器类型
 * `solver.resistance` (`double`, default: 0.001) - 空气阻力
 
+### TinyMPC 优化器参数
+
+* `solver.use_tinympc` (`bool`, default: false) - 是否启用tinyMPC轨迹优化器
+* `solver.tinympc.dt` (`double`, default: 0.01) - MPC离散时间步长（s）
+* `solver.tinympc.fire_thresh` (`double`, default: 0.04) - 射击准度阈值（rad）
+* `solver.tinympc.decision_speed` (`double`, default: 8.0) - 高/低速决策阈值（rad/s），目标yaw角速度超过此值时选用高速延迟
+* `solver.tinympc.high_speed_delay_time` (`double`, default: 0.12) - 高速旋转时的额外决策延迟（s）
+* `solver.tinympc.low_speed_delay_time` (`double`, default: 0.05) - 低速旋转时的额外决策延迟（s）
+* `solver.tinympc.max_yaw_acc` (`double`, default: 8.0) - 云台yaw轴最大加速度约束（rad/s²）
+* `solver.tinympc.max_pitch_acc` (`double`, default: 8.0) - 云台pitch轴最大加速度约束（rad/s²）
+* `solver.tinympc.Q_yaw` (matrix 2x2, default: diag(1.0, 0.1)) - yaw通道状态代价权重
+* `solver.tinympc.Q_pitch` (matrix 2x2, default: diag(1.0, 0.1)) - pitch通道状态代价权重
+* `solver.tinympc.R_yaw` (`double`, default: 0.1) - yaw通道控制输入代价权重
+* `solver.tinympc.R_pitch` (`double`, default: 0.1) - pitch通道控制输入代价权重
+
 
 ## ArmorSolverNode
 装甲板处理节点
@@ -114,5 +129,93 @@ $$ P_{k|k} = (I - K * H) * P_{k|k-1} $$
   首先由卡尔曼滤波器得到目标在当前帧的预测位置，然后遍历当前帧中的目标位置与预测位置进行匹配，若当前帧不存在目标或所有目标位置与预测位置的偏差都过大则认为目标丢失，重置卡尔曼滤波器。
   
   最后选取位置相差最小的目标作为最佳匹配项，更新卡尔曼滤波器，将更新后的状态作为跟踪器的结果输出
+
+## TinyMpcPlanner
+
+基于tinyMPC库的云台轨迹优化模块，在遮挡和高速旋转场景下提供更精准的瞄准指令
+
+### 工作原理
+
+**双路径架构：**
+- **Legacy路径**：基于锁定装甲板的几何关系直接计算云台指令（传统方案）
+- **MPC路径**：通过预测优化生成最优轨迹，改善快速目标追踪性能（当 `use_tinympc=true` 时启用）
+
+**MPC轨迹规划流程：**
+
+1. **时间补偿计算**
+   - 获取到目标的最近装甲板位置作为参考点
+   - 计算子弹飞行时间：$t_{fly} = $ `trajectory_compensator→getFlyingTime(closest\_armor\_to\_target)`
+   - 根据目标角速度 $v_{yaw}$ 选择决策延迟：
+     - 若 $|v_{yaw}| > decision\_speed$ → 使用 `high_speed_delay_time` （高速旋转场景）
+     - 否则 → 使用 `low_speed_delay_time` （低速追踪场景）
+   - 基础时间点 $t_{base} = t_{dt\_to\_now} + t_{prediction\_delay} + t_{fly} + t_{decision\_delay}$
+
+2. **轨迹生成**
+   - 从当前关节状态 $(y_{cur}, \dot{y}_{cur}, p_{cur}, \dot{p}_{cur})$ 出发
+   - 构建时长 $t_{horizon} = 100 \times dt = 1.0$ 秒的预测轨迹
+   - 参考轨迹为从基础时间点到地平线末端的目标角度曲线
+
+3. **MPC求解**
+   - 代价函数：$J = \sum_{k=0}^{N} (x_k^T Q x_k + u_k^T R u_k)$
+     - $Q$ 矩阵：状态跟踪误差权重（位置权重 > 速度权重）
+     - $R$ 矩阵：控制输入代价（制动能耗）
+   - 约束条件：
+     - 关节加速度：$|\ddot{y}|, |\ddot{p}| \leq a_{max}$
+   - 离散化：向后欧拉法，步长 $dt = 0.01$ 秒
+
+4. **失败处理**
+   - 若轨迹补偿失败（如飞行时间无效或轨迹无解），抛出异常
+   - 上层控制器捕获异常后回退到Legacy路径
+
+### 输出结果
+
+实时返回 `PlanResult` 结构体：
+
+```cpp
+struct PlanResult {
+  bool valid;              // 规划是否成功
+  bool fire;               // 当前是否应该射击
+  double plan_yaw;         // 目标yaw角指令
+  double plan_pitch;       // 目标pitch角指令
+  double aim_distance;     // 枪口到目标的水平距离（用于二级补偿）
+  double aim_height;       // 枪口到目标的竖直高度（用于二级补偿）
+};
+```
+
+### 调参建议
+
+| 参数 | 推荐值范围 | 说明 |
+|------|-----------|------|
+| `decision_speed` | 5.0 ~ 15.0 rad/s | 根据实际目标旋转速度范围调整 |
+| `high_speed_delay_time` | 0.08 ~ 0.15 s | 高速时需更长延迟来完成瞄准 |
+| `low_speed_delay_time` | 0.03 ~ 0.08 s | 低速时延迟较短 |
+| `Q_yaw / Q_pitch` 对角元 | (0.5 ~ 2.0, 0.05 ~ 0.2) | 前者控制位置精度，后者控制速度光滑度 |
+| `R_yaw / R_pitch` | 0.05 ~ 0.5 | 越大越保守，控制能耗 |
+
+### 与EKF和补偿器的数据流
+
+```
+EKF (Kalman Filter)
+    ↓ 
+    Target Message (包含 center_pos, v_yaw, radius_1 等)
+    ↓
+TinyMpcPlanner
+    ├─ 调用 trajectory_compensator→getFlyingTime() 计算飞行时间
+    ├─ 调用 trajectory_compensator→compensate() 生成轨迹点
+    └─ 返回 aim_distance, aim_height
+    ↓
+ArmorSolver (选定MPC路径)
+    ├─ 使用 plan_yaw, plan_pitch 作为主控制指令
+    └─ 调用 manual_compensator→angleHardCorrect(aim_distance, aim_height) 
+       进行二级角度微调
+    ↓
+GimbalCmd (发送至云台驱动)
+```
+
+### 调试建议
+
+- 设置 `debug: true` 可在日志中观察 MPC 求解状态、飞行时间计算和延迟选择
+- 若 MPC 频繁失败，检查 `max_yaw_acc` / `max_pitch_acc` 是否与实际云台能力匹配
+- 若射击精度下降，逐步调整 Q 矩阵权重或 `decision_speed` 阈值进行微调
 
 

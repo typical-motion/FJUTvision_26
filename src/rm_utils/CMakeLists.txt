@@ -21,7 +21,15 @@ find_package(geometry_msgs REQUIRED)
 find_package(OpenCV 4 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(rcpputils REQUIRED)
-find_package(fmt REQUIRED)
+
+find_library(FMT_SHARED_LIB NAMES fmt
+  PATHS /usr/lib/x86_64-linux-gnu
+  NO_DEFAULT_PATH
+)
+
+if(NOT FMT_SHARED_LIB)
+  message(FATAL_ERROR "Shared libfmt not found in /usr/lib/x86_64-linux-gnu")
+endif()
 
 # include
 include_directories(include)
@@ -31,8 +39,7 @@ add_library(fytlogger SHARED
   src/logger/writer.cpp
   src/logger/logger_pool.cpp
 )
-target_link_libraries(fytlogger fmt::fmt)
-ament_target_dependencies(fytlogger fmt)
+target_link_libraries(fytlogger ${FMT_SHARED_LIB})
 
 # create rm_utils lib
 add_library(${PROJECT_NAME} SHARED
@@ -85,7 +92,8 @@ install(TARGETS fytlogger
 # export lib lib
 ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_targets(fytlogger HAS_LIBRARY_TARGET)
-ament_export_dependencies(${dependencies} fmt)
+ament_export_include_directories(include)
+ament_export_dependencies(${dependencies})
 
 # test
 if(BUILD_TESTING)

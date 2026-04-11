@@ -32,6 +32,7 @@
 #include "rm_interfaces/msg/target.hpp"
 #include "rm_utils/math/trajectory_compensator.hpp"
 #include "rm_utils/math/manual_compensator.hpp"
+#include "armor_solver/tinympc_planner.hpp"
 
 namespace fyt::auto_aim {
 // Solver class used to solve the gimbal command from tracked target
@@ -84,6 +85,11 @@ private:
   std::unique_ptr<ManualCompensator> manual_compensator_;
 
   std::array<double, 3> rpy_;
+
+  bool use_tinympc_;
+  std::unique_ptr<TinyMpcPlanner> tinympc_planner_;
+  double last_plan_yaw_;
+  double last_plan_pitch_;
 
   double prediction_delay_;
   double controller_delay_;

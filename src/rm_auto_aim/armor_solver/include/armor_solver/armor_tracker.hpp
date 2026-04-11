@@ -57,6 +57,12 @@ public:
     TEMP_LOST,
   } tracker_state;
 
+  bool jumped;
+  bool isinit;
+
+  double position_diff;
+  double yaw_diff;
+
   std::unique_ptr<RobotStateEKF> ekf;
 
   int tracking_thres;  // frame
@@ -74,6 +80,12 @@ public:
   // To store offset relative to the reference plane
   double d_zc;
 
+  bool diverged() const noexcept;
+
+  bool convergened();
+
+  bool checkinit() const noexcept;
+
 private:
   void initEKF(const Armor &a) noexcept;
 
@@ -88,6 +100,12 @@ private:
 
   int detect_count_;
   int lost_count_;
+
+  int update_count_;
+  int switch_count_;
+
+  bool is_switch_;
+  bool is_converged_;
 
   double last_yaw_;
 };
