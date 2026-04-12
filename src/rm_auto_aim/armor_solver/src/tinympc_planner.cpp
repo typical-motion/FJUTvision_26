@@ -235,26 +235,13 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
   const Eigen::Vector3d velocity(target.velocity.x, target.velocity.y, target.velocity.z);
 
   const double dt_to_now = (current_time - rclcpp::Time(target.header.stamp)).seconds();
-  const Eigen::Vector3d current_closest = getClosestArmorPosition(center0,
-                                                                  target.yaw,
-                                                                  target.radius_1,
-                                                                  target.radius_2,
-                                                                  target.d_zc,
-                                                                  target.d_za,
-                                                                  static_cast<size_t>(target.armors_num));
 
-  double fly_time = 0.0;
-  if (trajectory_compensator != nullptr) {
-    trajectory_compensator->velocity = bullet_speed;
-    fly_time = trajectory_compensator->getFlyingTime(current_closest);
-    if (!std::isfinite(fly_time) || fly_time < 0.0 || fly_time > 1.0) {
-      throw std::runtime_error("Invalid flying time");
-    }
-  }
-
+  // NOTE: Flying time has already been applied in armor_solver.cpp (line 103-104)
+  // The Target message's position is already predicted with flying_time included in dt.
+  // We only add decision_delay here to avoid double-counting fly_time.
   const double decision_delay = std::abs(target.v_yaw) > decision_speed_ ? high_speed_delay_time_ :
                                                                    low_speed_delay_time_;
-  const double base_t = dt_to_now + prediction_delay + fly_time + decision_delay;
+  const double base_t = dt_to_now + prediction_delay + decision_delay;
 
   for (int i = 0; i < kHorizon; i++) {
     const double local_t = (static_cast<double>(i) - kHalfHorizon) * dt_;

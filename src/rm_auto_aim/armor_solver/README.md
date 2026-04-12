@@ -143,29 +143,30 @@ $$ P_{k|k} = (I - K * H) * P_{k|k-1} $$
 **MPC轨迹规划流程：**
 
 1. **时间补偿计算**
-   - 获取到目标的最近装甲板位置作为参考点
-   - 计算子弹飞行时间：$t_{fly} = $ `trajectory_compensator→getFlyingTime(closest\_armor\_to\_target)`
-   - 根据目标角速度 $v_{yaw}$ 选择决策延迟：
+   - 飞行时间补偿由 `armor_solver.cpp` 完成（在调用MPC规划前）
+   - `armor_solver` 首先计算：$t_{dt} = t_{message\_age} + t_{fly} + t_{prediction\_delay}$
+   - 使用此 $t_{dt}$ 预测目标的位置和方向，然后将预测结果作为目标消息传给MPC
+   - **关键**：MPC接收的Target消息位置已经包含了飞行时间补偿，因此MPC规划器中**不再重复计算飞行时间**
+
+2. **MPC决策延迟选择**
+   - MPC规划器根据目标角速度 $v_{yaw}$ 选择决策延迟（不同于飞行时间）：
      - 若 $|v_{yaw}| > decision\_speed$ → 使用 `high_speed_delay_time` （高速旋转场景）
      - 否则 → 使用 `low_speed_delay_time` （低速追踪场景）
-   - 基础时间点 $t_{base} = t_{dt\_to\_now} + t_{prediction\_delay} + t_{fly} + t_{decision\_delay}$
+   - 基础时间点：$t_{base} = t_{dt\_to\_now} + t_{prediction\_delay} + t_{decision\_delay}$
+   - 注意：$t_{dt\_to\_now}$ 是消息时戳到当前时刻的延迟，已经隐含包含了飞行时间补偿
 
-2. **轨迹生成**
+3. **轨迹生成**
    - 从当前关节状态 $(y_{cur}, \dot{y}_{cur}, p_{cur}, \dot{p}_{cur})$ 出发
    - 构建时长 $t_{horizon} = 100 \times dt = 1.0$ 秒的预测轨迹
    - 参考轨迹为从基础时间点到地平线末端的目标角度曲线
 
-3. **MPC求解**
+4. **MPC求解**
    - 代价函数：$J = \sum_{k=0}^{N} (x_k^T Q x_k + u_k^T R u_k)$
      - $Q$ 矩阵：状态跟踪误差权重（位置权重 > 速度权重）
      - $R$ 矩阵：控制输入代价（制动能耗）
    - 约束条件：
      - 关节加速度：$|\ddot{y}|, |\ddot{p}| \leq a_{max}$
    - 离散化：向后欧拉法，步长 $dt = 0.01$ 秒
-
-4. **失败处理**
-   - 若轨迹补偿失败（如飞行时间无效或轨迹无解），抛出异常
-   - 上层控制器捕获异常后回退到Legacy路径
 
 ### 输出结果
 
