@@ -162,11 +162,10 @@ void HikCameraNode::declareParameters()
   
   // Exposure time
   param_desc.description = "Exposure time in microseconds";
-  MV_CC_GetFloatValue(camera_handle_, "ExposureTime", &f_value);
-  param_desc.integer_range[0].from_value = f_value.fMin;
-  param_desc.integer_range[0].to_value = f_value.fMax;
-  double exposure_time = this->declare_parameter("exposure_time", 5000, param_desc);
-  MV_CC_SetFloatValue(camera_handle_, "ExposureTime", exposure_time);
+  param_desc.integer_range[0].from_value = 1;
+  param_desc.integer_range[0].to_value = 200000;
+  int exposure_time = this->declare_parameter("exposure_time", 5000, param_desc);
+  MV_CC_SetFloatValue(camera_handle_, "ExposureTime", (float)exposure_time);
   FYT_INFO("camera_driver", "Exposure time: {}", exposure_time);
 
   // Gain
@@ -186,7 +185,7 @@ rcl_interfaces::msg::SetParametersResult HikCameraNode::parametersCallback(
   result.successful = true;
   for (const auto & param : parameters) {
     if (param.get_name() == "exposure_time") {
-      int status = MV_CC_SetFloatValue(camera_handle_, "ExposureTime", param.as_int());
+      int status = MV_CC_SetFloatValue(camera_handle_, "ExposureTime", (float)param.as_int());
       if (MV_OK != status) {
         result.successful = false;
         result.reason = "Failed to set exposure time, status = " + std::to_string(status);

@@ -16,7 +16,7 @@
 #define RM_CAMERA_DRIVER__HIK_CAMERA_HPP_
 
 // Hikvision Camera SDK
-#include "MvCameraControl.h"
+#include "hikvision/MvCameraControl.h"
 // ROS
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_transport/image_transport.hpp>

@@ -27,33 +27,27 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC 
   include 
   ${OpenCV_INCLUDE_DIRS}
-  hikSDK/include
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
   target_link_directories(${PROJECT_NAME} PUBLIC 
     lib/x86_64
-    hikSDK/lib/amd64
+    lib/hikvision_x86_64
   )
   install(
     DIRECTORY lib/x86_64
     DESTINATION lib
   )
   install(
-    DIRECTORY hikSDK/lib/amd64/
+    DIRECTORY lib/hikvision_x86_64/
     DESTINATION lib
   )
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   target_link_directories(${PROJECT_NAME} PUBLIC 
-    lib/arm64
-    hikSDK/lib/arm64
+    lib/hikvision_arm64
   )
   install(
-    DIRECTORY lib/arm64/
-    DESTINATION lib
-  )
-  install(
-    DIRECTORY hikSDK/lib/arm64/
+    DIRECTORY lib/hikvision_arm64/
     DESTINATION lib
   )
 else()
