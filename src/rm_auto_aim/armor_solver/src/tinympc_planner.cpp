@@ -78,17 +78,45 @@ void TinyMpcPlanner::refreshParams() {
   const auto q_pitch = n->get_parameter("solver.tinympc.Q_pitch").as_double_array();
   const auto r_pitch = n->get_parameter("solver.tinympc.R_pitch").as_double_array();
 
+  // Check if Q/R parameters have changed; if so, update solvers
+  bool q_r_changed = false;
+
   if (q_yaw.size() == 2) {
-    q_yaw_ << q_yaw[0], q_yaw[1];
+    Eigen::Vector2d new_q_yaw;
+    new_q_yaw << q_yaw[0], q_yaw[1];
+    if (!q_yaw_.isApprox(new_q_yaw)) {
+      q_yaw_ = new_q_yaw;
+      q_r_changed = true;
+    }
   }
   if (q_pitch.size() == 2) {
-    q_pitch_ << q_pitch[0], q_pitch[1];
+    Eigen::Vector2d new_q_pitch;
+    new_q_pitch << q_pitch[0], q_pitch[1];
+    if (!q_pitch_.isApprox(new_q_pitch)) {
+      q_pitch_ = new_q_pitch;
+      q_r_changed = true;
+    }
   }
   if (!r_yaw.empty()) {
-    r_yaw_ = Eigen::Map<const Eigen::VectorXd>(r_yaw.data(), static_cast<long>(r_yaw.size()));
+    Eigen::VectorXd new_r_yaw = 
+      Eigen::Map<const Eigen::VectorXd>(r_yaw.data(), static_cast<long>(r_yaw.size()));
+    if (r_yaw_.rows() != new_r_yaw.rows() || !r_yaw_.isApprox(new_r_yaw)) {
+      r_yaw_ = new_r_yaw;
+      q_r_changed = true;
+    }
   }
   if (!r_pitch.empty()) {
-    r_pitch_ = Eigen::Map<const Eigen::VectorXd>(r_pitch.data(), static_cast<long>(r_pitch.size()));
+    Eigen::VectorXd new_r_pitch = 
+      Eigen::Map<const Eigen::VectorXd>(r_pitch.data(), static_cast<long>(r_pitch.size()));
+    if (r_pitch_.rows() != new_r_pitch.rows() || !r_pitch_.isApprox(new_r_pitch)) {
+      r_pitch_ = new_r_pitch;
+      q_r_changed = true;
+    }
+  }
+
+  // Rebuild solvers if Q/R changed to apply new parameters
+  if (q_r_changed) {
+    setupSolvers();
   }
 }
 

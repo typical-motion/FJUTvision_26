@@ -112,6 +112,12 @@ private:
   Eigen::VectorXd r_yaw_{Eigen::VectorXd::Constant(1, 40.0)};
   Eigen::Vector2d q_pitch_{40.0, 1.0};
   Eigen::VectorXd r_pitch_{Eigen::VectorXd::Constant(1, 40.0)};
+
+  // Keep previous Q/R values to detect changes
+  Eigen::Vector2d q_yaw_prev_{40.0, 1.0};
+  Eigen::VectorXd r_yaw_prev_{Eigen::VectorXd::Constant(1, 40.0)};
+  Eigen::Vector2d q_pitch_prev_{40.0, 1.0};
+  Eigen::VectorXd r_pitch_prev_{Eigen::VectorXd::Constant(1, 40.0)};
 };
 
 }  // namespace fyt::auto_aim

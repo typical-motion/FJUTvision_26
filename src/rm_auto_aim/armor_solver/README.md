@@ -47,10 +47,10 @@
 * `solver.tinympc.low_speed_delay_time` (`double`, default: 0.05) - 低速旋转时的额外决策延迟（s）
 * `solver.tinympc.max_yaw_acc` (`double`, default: 8.0) - 云台yaw轴最大加速度约束（rad/s²）
 * `solver.tinympc.max_pitch_acc` (`double`, default: 8.0) - 云台pitch轴最大加速度约束（rad/s²）
-* `solver.tinympc.Q_yaw` (matrix 2x2, default: diag(1.0, 0.1)) - yaw通道状态代价权重
-* `solver.tinympc.Q_pitch` (matrix 2x2, default: diag(1.0, 0.1)) - pitch通道状态代价权重
-* `solver.tinympc.R_yaw` (`double`, default: 0.1) - yaw通道控制输入代价权重
-* `solver.tinympc.R_pitch` (`double`, default: 0.1) - pitch通道控制输入代价权重
+* `solver.tinympc.Q_yaw` (matrix 2x2, default: diag(40.0, 1.0)) - yaw通道状态代价权重
+* `solver.tinympc.Q_pitch` (matrix 2x2, default: diag(40.0, 1.0)) - pitch通道状态代价权重
+* `solver.tinympc.R_yaw` (`double`, default: 40.0) - yaw通道控制输入代价权重
+* `solver.tinympc.R_pitch` (`double`, default: 40.0) - pitch通道控制输入代价权重
 
 
 ## ArmorSolverNode
