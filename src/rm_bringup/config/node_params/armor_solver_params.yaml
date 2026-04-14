@@ -3,6 +3,8 @@
     debug: true
     target_frame: odom
     max_armor_distance: 10.0
+    target:
+      ignore_enemy_two: false
 
     ekf:
       sigma2_q_x: 0.05

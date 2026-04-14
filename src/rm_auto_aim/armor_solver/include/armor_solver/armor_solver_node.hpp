@@ -75,6 +75,7 @@ private:
   double s2qx_, s2qy_, s2qz_, s2qyaw_, s2qr_, s2qd_zc_;
   double r_x_, r_y_, r_z_, r_yaw_;
   double lost_time_thres_;
+  bool ignore_enemy_two_;
   std::unique_ptr<Tracker> tracker_;
 
   // Armor Solver

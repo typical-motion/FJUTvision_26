@@ -41,6 +41,7 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
   tracker_ = std::make_unique<Tracker>(max_match_distance, max_match_yaw_diff);
   tracker_->tracking_thres = this->declare_parameter("tracker.tracking_thres", 5);
   lost_time_thres_ = this->declare_parameter("tracker.lost_time_thres", 0.3);
+  ignore_enemy_two_ = this->declare_parameter("target.ignore_enemy_two", true);
 
   // EKF
   // xa = x_armor, xc = x_robot_center
@@ -273,8 +274,17 @@ void ArmorSolverNode::armorsCallback(const rm_interfaces::msg::Armors::SharedPtr
   // Filter abnormal armors
   armors_msg->armors.erase(std::remove_if(armors_msg->armors.begin(),
                                           armors_msg->armors.end(),
-                                          [](const rm_interfaces::msg::Armor &armor) {
-                                            return abs(armor.pose.position.z) > 2;
+                                          [this](const rm_interfaces::msg::Armor &armor) {
+                                            if (std::abs(armor.pose.position.z) > 2) {
+                                              return true;
+                                            }
+
+                                            // Optional tactic: skip enemy No.2 entirely.
+                                            if (ignore_enemy_two_ && armor.number == "2") {
+                                              return true;
+                                            }
+
+                                            return false;
                                           }),
                            armors_msg->armors.end());
 
