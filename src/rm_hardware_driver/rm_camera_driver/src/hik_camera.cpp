@@ -14,7 +14,11 @@
 
 #include "rm_camera_driver/hik_camera.hpp"
 // std
+#include <cstdlib>
+#include <ctime>
 #include <chrono>
+#include <filesystem>
+#include <memory>
 #include <thread>
 // project
 #include "rm_utils/logger/log.hpp"
@@ -44,7 +48,7 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
 
   // Get camera information
   MV_CC_GetImageInfo(camera_handle_, &img_info_);
-  image_msg_.data.reserve(img_info_.nHeightMax * img_info_.nWidthMax * 3);
+  image_msg_.data.resize(img_info_.nHeightMax * img_info_.nWidthMax * 3);
 
   // Init convert param
   convert_param_.nWidth = img_info_.nWidthValue;
@@ -54,6 +58,22 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
   bool use_sensor_data_qos = this->declare_parameter("use_sensor_data_qos", true);
   auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data : rmw_qos_profile_default;
   camera_pub_ = image_transport::create_camera_publisher(this, "image_raw", qos);
+
+  bool enable_recorder = this->declare_parameter("recording", false);
+  int frame_rate = this->declare_parameter("frame_rate", 30);
+  if (enable_recorder) {
+    const char * home_env = std::getenv("HOME");
+    std::string home = home_env != nullptr ? home_env : ".";
+
+    namespace fs = std::filesystem;
+    std::filesystem::path video_path =
+      fs::path(home) / "fyt2024-log/video/" / std::string(std::to_string(std::time(nullptr)) + ".avi");
+
+    recorder_ = std::make_unique<Recorder>(
+      video_path, frame_rate, cv::Size(img_info_.nWidthValue, img_info_.nHeightValue));
+    recorder_->start();
+    FYT_INFO("camera_driver", "Recorder started! Video file: {}", video_path.string());
+  }
 
   // Heartbeat
   heartbeat_ = HeartBeatPublisher::create(this);
@@ -94,6 +114,12 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
     while (rclcpp::ok()) {
       nRet = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000);
       if (MV_OK == nRet) {
+        image_msg_.header.stamp = this->now();
+        image_msg_.height = out_frame.stFrameInfo.nHeight;
+        image_msg_.width = out_frame.stFrameInfo.nWidth;
+        image_msg_.step = out_frame.stFrameInfo.nWidth * 3;
+        image_msg_.data.resize(image_msg_.width * image_msg_.height * 3);
+
         convert_param_.pDstBuffer = image_msg_.data.data();
         convert_param_.nDstBufferSize = image_msg_.data.size();
         convert_param_.pSrcData = out_frame.pBufAddr;
@@ -102,14 +128,11 @@ HikCameraNode::HikCameraNode(const rclcpp::NodeOptions & options)
 
         MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
 
-        image_msg_.header.stamp = this->now();
-        image_msg_.height = out_frame.stFrameInfo.nHeight;
-        image_msg_.width = out_frame.stFrameInfo.nWidth;
-        image_msg_.step = out_frame.stFrameInfo.nWidth * 3;
-        image_msg_.data.resize(image_msg_.width * image_msg_.height * 3);
-
         camera_info_msg_.header = image_msg_.header;
         camera_pub_.publish(image_msg_, camera_info_msg_);
+        if (recorder_ != nullptr) {
+          recorder_->addFrame(image_msg_.data);
+        }
 
         MV_CC_FreeImageBuffer(camera_handle_, &out_frame);
         fail_count_ = 0;
@@ -132,6 +155,11 @@ HikCameraNode::~HikCameraNode()
 {
   if (capture_thread_.joinable()) {
     capture_thread_.join();
+  }
+  if (recorder_ != nullptr) {
+    recorder_->stop();
+    FYT_INFO(
+      "camera_driver", "Recorder stopped! Video file {} has been saved", recorder_->path.string());
   }
   if (camera_handle_) {
     MV_CC_StopGrabbing(camera_handle_);

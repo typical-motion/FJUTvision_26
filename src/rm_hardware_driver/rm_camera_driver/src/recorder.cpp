@@ -50,7 +50,9 @@ void Recorder::addFrame(const Frame &frame) {
 void Recorder::stop() {
   recoring_ = false;
   cv_.notify_all();
-  recorder_thread_.join();
+  if (recorder_thread_.joinable()) {
+    recorder_thread_.join();
+  }
 }
 
 void Recorder::recorderThread() {

@@ -5,3 +5,5 @@
     gain: 15.0
     camera_name: "hikvision"
     use_sensor_data_qos: true
+    frame_rate: 30
+    recording: false
