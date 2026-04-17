@@ -25,7 +25,10 @@
 #include <rclcpp/utilities.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+// std
+#include <memory>
 // project
+#include "rm_camera_driver/recorder.hpp"
 #include "rm_utils/heartbeat.hpp"
 
 namespace fyt::camera_driver {
@@ -47,6 +50,7 @@ private:
   sensor_msgs::msg::CameraInfo camera_info_msg_;
 
   image_transport::CameraPublisher camera_pub_;
+  std::unique_ptr<Recorder> recorder_;
 
   int nRet = MV_OK;
   void * camera_handle_ = nullptr;
