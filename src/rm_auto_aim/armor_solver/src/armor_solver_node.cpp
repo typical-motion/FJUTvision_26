@@ -167,7 +167,8 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
       position_scale *= r_missing_quality_scale;
       yaw_scale *= r_missing_quality_scale;
     }
-
+    position_scale = std::clamp(position_scale, 0.1, 100.0);
+    yaw_scale = std::clamp(yaw_scale, 0.1, 100.0);
     // clang-format off
     r << r_x_ * (std::abs(z[0]) + 0.02) * position_scale, 0, 0, 0,
          0, r_y_ * (std::abs(z[1]) + 0.02) * position_scale, 0, 0,
