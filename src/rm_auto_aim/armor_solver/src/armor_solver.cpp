@@ -149,7 +149,7 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
 
       gimbal_cmd.yaw = cmd_yaw * 180.0 / M_PI;
       gimbal_cmd.pitch = cmd_pitch * 180.0 / M_PI;
-      gimbal_cmd.yaw_diff = (cmd_yaw - rpy_[2]) * 180.0 / M_PI;
+      gimbal_cmd.yaw_diff = angles::shortest_angular_distance(rpy_[2], cmd_yaw) * 180.0 / M_PI;
       gimbal_cmd.pitch_diff = (cmd_pitch - rpy_[1]) * 180.0 / M_PI;
       return gimbal_cmd;
     }
@@ -216,7 +216,7 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
 
   gimbal_cmd.yaw = cmd_yaw * 180 / M_PI;
   gimbal_cmd.pitch = cmd_pitch * 180 / M_PI;  
-  gimbal_cmd.yaw_diff = (cmd_yaw - rpy_[2]) * 180 / M_PI;
+  gimbal_cmd.yaw_diff = angles::shortest_angular_distance(rpy_[2], cmd_yaw) * 180 / M_PI;
   gimbal_cmd.pitch_diff = (cmd_pitch - rpy_[1]) * 180 / M_PI;
 
   if (gimbal_cmd.fire_advice) {
@@ -237,7 +237,7 @@ bool Solver::isOnTarget(const double cur_yaw,
   // too large
   shooting_range_yaw = std::max(shooting_range_yaw, 1.0 * M_PI / 180);
   shooting_range_pitch = std::max(shooting_range_pitch, 1.0 * M_PI / 180);
-  if (std::abs(cur_yaw - target_yaw) < shooting_range_yaw &&
+  if (std::abs(angles::shortest_angular_distance(cur_yaw, target_yaw)) < shooting_range_yaw &&
       std::abs(cur_pitch - target_pitch) < shooting_range_pitch) {
     return true;
   }
