@@ -17,40 +17,114 @@
   
 ### 参数 
 
-* `debug` (`bool`, default: false) - 是否开启调试模式
+* `debug` (`bool`, default: true) - 是否开启调试模式
 * `target_frame` (`string`, default: "odom") - 目标坐标系
-* `ekf.sigma2_q_xyz` (`double`, default: 0.05) - 状态转移噪声方差 (x,y,z)
-* `ekf.sigma2_q_yaw` (`double`, default: 1.0) - 状态转移噪声方差 (yaw)
-* `ekf.sigma2_q_r` (`double`, default: 80.0) - 状态转移噪声方差 (r)
-* `r_xyz_factor` (`double`, default: 1.0) - 位置观测噪声方差系数 (x,y,z)
-* `r_yaw_factor` (`double`, default: 1.0) - 位置观测噪声方差系数 (yaw)
-* `tracker.max_match_distance` (`double`, default: 0.5) - 两帧间目标可匹配的最大距离
-* `tracker.max_match_yaw_diff` (`double`, default: 0.5) - 两帧间目标同一块装甲板可匹配的最大yaw角差（大于这个值则认为装甲板发生跳变）
-* `tracker.tracking_thres` (`int`, default: 2) - `DETECTING` 状态进入 `TRACKING` 状态需要连续识别到的帧数
-* `tracker.lost_thres` (`double`, default: 1.0) - `TRACKING` 状态进入 `LOST` 状态需要连续丢失的时间（s）
+* `ekf.sigma2_q_x` (`double`, default: 20.0) - 状态转移噪声方差 (x)
+* `ekf.sigma2_q_y` (`double`, default: 20.0) - 状态转移噪声方差 (y)
+* `ekf.sigma2_q_z` (`double`, default: 20.0) - 状态转移噪声方差 (z)
+* `ekf.sigma2_q_yaw` (`double`, default: 100.0) - 状态转移噪声方差 (yaw)
+* `ekf.sigma2_q_r` (`double`, default: 800.0) - 状态转移噪声方差 (r)
+* `ekf.sigma2_q_d_zc` (`double`, default: 800.0) - 状态转移噪声方差 (d_zc)
+* `ekf.use_legacy_noise_model` (`bool`, default: false) - 是否使用旧版噪声模型
+* `ekf.q_outpost_linear_factor` (`double`, default: 0.1) - outpost 线性通道 Q 缩放因子
+* `ekf.q_outpost_yaw_factor` (`double`, default: 0.001) - outpost yaw 通道 Q 缩放因子
+* `ekf.q_normal_linear_factor` (`double`, default: 1.0) - 非 outpost 线性通道 Q 缩放因子
+* `ekf.q_normal_yaw_factor` (`double`, default: 1.0) - 非 outpost yaw 通道 Q 缩放因子
+* `ekf.r_x` (`double`, default: 0.05) - x 方向观测噪声基值
+* `ekf.r_y` (`double`, default: 0.05) - y 方向观测噪声基值
+* `ekf.r_z` (`double`, default: 0.05) - z 方向观测噪声基值
+* `ekf.r_yaw` (`double`, default: 0.02) - yaw 观测噪声基值
+* `ekf.r_quality_clip` (`double`, default: 2.0) - 质量指标上限
+* `ekf.r_position_gain` (`double`, default: 6.0) - 位置质量到 R 缩放的增益
+* `ekf.r_yaw_gain` (`double`, default: 6.0) - yaw 质量到 R 缩放的增益
+* `ekf.r_missing_quality_scale` (`double`, default: 4.0) - 质量缺失时额外放大系数
+* `tracker.max_match_distance` (`double`, default: 0.2) - 两帧间目标可匹配的最大距离
+* `tracker.max_match_yaw_diff` (`double`, default: 1.0) - 两帧间目标同一块装甲板可匹配的最大 yaw 角差（大于该值视为跳变）
+* `tracker.tracking_thres` (`int`, default: 5) - `DETECTING` 状态进入 `TRACKING` 状态需要连续识别到的帧数
+* `tracker.lost_time_thres` (`double`, default: 0.3) - `TRACKING` 状态进入 `LOST` 状态需要连续丢失的时间（s）
+* `solver.shooting_range_width` (`double`, default: 0.135) - 射击判定窗口宽度
+* `solver.shooting_range_height` (`double`, default: 0.135) - 射击判定窗口高度
 * `solver.prediction_delay` (`double`, default: 0.0) - 预测延迟时间（s），会影响选版
 * `solver.controller_delay` (`double`, default: 0.0) - 控制延迟时间（s），不会影响选版
-* `solver.max_tracking_v_yaw` (`double`, default: 60.0) - 转速大于这个值时，瞄准中心
+* `solver.max_tracking_v_yaw` (`double`, default: 6.0) - 转速大于这个值时，瞄准中心
+* `solver.min_switching_v_yaw` (`double`, default: 1.0) - 低速切换阈值
 * `solver.side_angle` (`double`, default: 15.0) - 跳转到下一装甲板的角度阈值
-* `solver.bullet_speed` (`double`, default: 25.0) - 子弹速度
+* `solver.iteration_times` (`int`, default: 20) - 弹道补偿迭代次数
+* `solver.bullet_speed` (`double`, default: 20.0) - 子弹速度
 * `solver.gravity` (`double`, default: 9.8) - 重力加速度
 * `solver.compensator_type` (`string`, default: "ideal") - 补偿器类型
 * `solver.resistance` (`double`, default: 0.001) - 空气阻力
+* `solver.angle_offset` (`string[]`, default: `[]`) - 手动补偿映射配置
 
 ### TinyMPC 优化器参数
 
 * `solver.use_tinympc` (`bool`, default: false) - 是否启用tinyMPC轨迹优化器
 * `solver.tinympc.dt` (`double`, default: 0.01) - MPC离散时间步长（s）
-* `solver.tinympc.fire_thresh` (`double`, default: 0.04) - 射击准度阈值（rad）
+* `solver.tinympc.yaw_offset` (`double`, default: 0.0) - yaw 目标偏置角（deg）
+* `solver.tinympc.pitch_offset` (`double`, default: 0.0) - pitch 目标偏置角（deg）
+* `solver.tinympc.fire_thresh` (`double`, default: 0.05) - 射击准度阈值（rad）
+* `solver.tinympc.shoot_offset` (`int`, default: 2) - 射击点前瞻偏移步数
 * `solver.tinympc.decision_speed` (`double`, default: 8.0) - 高/低速决策阈值（rad/s），目标yaw角速度超过此值时选用高速延迟
 * `solver.tinympc.high_speed_delay_time` (`double`, default: 0.12) - 高速旋转时的额外决策延迟（s）
 * `solver.tinympc.low_speed_delay_time` (`double`, default: 0.05) - 低速旋转时的额外决策延迟（s）
-* `solver.tinympc.max_yaw_acc` (`double`, default: 8.0) - 云台yaw轴最大加速度约束（rad/s²）
-* `solver.tinympc.max_pitch_acc` (`double`, default: 8.0) - 云台pitch轴最大加速度约束（rad/s²）
+* `solver.tinympc.max_yaw_acc` (`double`, default: 6.0) - 云台yaw轴最大加速度约束（rad/s²）
+* `solver.tinympc.max_pitch_acc` (`double`, default: 6.0) - 云台pitch轴最大加速度约束（rad/s²）
 * `solver.tinympc.Q_yaw` (matrix 2x2, default: diag(40.0, 1.0)) - yaw通道状态代价权重
 * `solver.tinympc.Q_pitch` (matrix 2x2, default: diag(40.0, 1.0)) - pitch通道状态代价权重
-* `solver.tinympc.R_yaw` (`double`, default: 40.0) - yaw通道控制输入代价权重
-* `solver.tinympc.R_pitch` (`double`, default: 40.0) - pitch通道控制输入代价权重
+* `solver.tinympc.R_yaw` (`double[]`, default: `[40.0]`) - yaw通道控制输入代价权重
+* `solver.tinympc.R_pitch` (`double[]`, default: `[40.0]`) - pitch通道控制输入代价权重
+
+### EKF 自适应 Q/R 说明
+
+当 `ekf.use_legacy_noise_model=false` 时，系统启用自适应噪声模型。
+
+#### 1) 自适应 Q（过程噪声）
+
+Q 会根据目标类型切换倍率：
+
+- outpost 目标：
+  - 线性通道（x/y/z/r/d_zc）乘 `ekf.q_outpost_linear_factor`（默认 0.1）
+  - yaw 通道乘 `ekf.q_outpost_yaw_factor`（默认 0.001）
+- 非 outpost 目标：
+  - 线性通道乘 `ekf.q_normal_linear_factor`（默认 1.0）
+  - yaw 通道乘 `ekf.q_normal_yaw_factor`（默认 1.0）
+
+这用于降低 outpost 这种特殊目标的过程噪声，减少估计抖动。
+
+#### 2) 自适应 R（观测噪声）
+
+R 会根据跟踪质量动态放大或缩小：
+
+- 质量来源：
+  - `position_quality = min(tracker.position_diff, ekf.r_quality_clip)`
+  - `yaw_quality = min(tracker.yaw_diff, ekf.r_quality_clip)`
+- 缩放公式：
+  - `position_scale = 1 + ekf.r_position_gain * log1p(position_quality)`
+  - `yaw_scale = 1 + ekf.r_yaw_gain * log1p(yaw_quality)`
+- 当质量不可用（跟踪器未初始化）时，额外乘：
+  - `ekf.r_missing_quality_scale`（默认 4.0）
+
+最终观测噪声对角线近似为：
+
+- `R_x = ekf.r_x * (|z_x| + 0.02) * position_scale`
+- `R_y = ekf.r_y * (|z_y| + 0.02) * position_scale`
+- `R_z = ekf.r_z * (|z_z| + 0.02) * position_scale`
+- `R_yaw = ekf.r_yaw * yaw_scale`
+
+#### 3) 数值稳定性保护（已实现）
+
+为避免出现 e-41 或 e+38 这类极端值，当前实现对缩放因子做了限幅：
+
+- `position_scale` 限制在 `[0.1, 100.0]`
+- `yaw_scale` 限制在 `[0.1, 100.0]`
+
+这可以防止 R 矩阵过小或过大导致滤波器数值不稳定。
+
+#### 4) 推荐调参顺序
+
+1. 固定 `r_quality_clip=2.0`，先调 `r_position_gain`、`r_yaw_gain`（建议 2.0~6.0）
+2. 若初始化阶段抖动大，再调低 `r_missing_quality_scale`（建议 2.0~4.0）
+3. 若滤波发散或响应过慢，再微调基础噪声 `r_x/r_y/r_z/r_yaw`
 
 
 ## ArmorSolverNode
@@ -59,11 +133,11 @@
 订阅识别节点发布的装甲板三维位置及机器人的坐标转换信息，将装甲板三维位置变换到指定惯性系（一般是以云台中心为原点，IMU 上电时的 Yaw 朝向为 X 轴的惯性系）下，然后将装甲板目标送入跟踪器中，输出跟踪机器人在指定惯性系下的状态
 
 订阅：
-- 已识别到的装甲板 `/detector/armors`
+- 已识别到的装甲板 `/armor_detector/armors`
 - 机器人的坐标转换信息 `/tf` `/tf_static`
 
 发布：
-- 最终锁定的目标 `/tracker/target`
+- 最终锁定的目标 `/armor_solver/target`
 
 参数：
 - 跟踪器参数 tracker
@@ -201,8 +275,7 @@ EKF (Kalman Filter)
     Target Message (包含 center_pos, v_yaw, radius_1 等)
     ↓
 TinyMpcPlanner
-    ├─ 调用 trajectory_compensator→getFlyingTime() 计算飞行时间
-    ├─ 调用 trajectory_compensator→compensate() 生成轨迹点
+  ├─ 调用 trajectory_compensator→compensate() 进行 pitch 弹道补偿
     └─ 返回 aim_distance, aim_height
     ↓
 ArmorSolver (选定MPC路径)
