@@ -15,6 +15,8 @@
 
 #include "rm_serial_driver/protocol/default_protocol.hpp"
 
+#include "rm_interfaces/msg/target.hpp"
+
 namespace fyt::serial_driver::protocol {
 
 DefaultProtocol::DefaultProtocol(std::string_view port_name, bool enable_data_print) {
@@ -25,12 +27,30 @@ DefaultProtocol::DefaultProtocol(std::string_view port_name, bool enable_data_pr
 
 std::vector<rclcpp::SubscriptionBase::SharedPtr> DefaultProtocol::getSubscriptions(
   rclcpp::Node::SharedPtr node) {
-  return {node->create_subscription<rm_interfaces::msg::GimbalCmd>(
+  auto target_sub = node->create_subscription<rm_interfaces::msg::Target>(
+    "armor_solver/target",
+    rclcpp::SensorDataQoS(),
+    [this](const rm_interfaces::msg::Target::SharedPtr msg) { auto_aim_tracking_.store(msg->tracking); });
+
+  auto auto_aim_sub = node->create_subscription<rm_interfaces::msg::GimbalCmd>(
     "armor_solver/cmd_gimbal",
     rclcpp::SensorDataQoS(),
-    [this](const rm_interfaces::msg::GimbalCmd::SharedPtr msg) { this->send(*msg); })
+    [this](const rm_interfaces::msg::GimbalCmd::SharedPtr msg) {
+      if (auto_aim_tracking_.load()) {
+        this->send(*msg);
+      }
+    });
 
-  };
+  auto omni_sub = node->create_subscription<rm_interfaces::msg::GimbalCmd>(
+    "omniperception/cmd_gimbal",
+    rclcpp::SensorDataQoS(),
+    [this](const rm_interfaces::msg::GimbalCmd::SharedPtr msg) {
+      if (!auto_aim_tracking_.load()) {
+        this->send(*msg);
+      }
+    });
+
+  return {target_sub, auto_aim_sub, omni_sub};
 }
 
 std::vector<rclcpp::Client<rm_interfaces::srv::SetMode>::SharedPtr> DefaultProtocol::getClients(

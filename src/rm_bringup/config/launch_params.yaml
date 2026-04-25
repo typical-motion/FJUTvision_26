@@ -17,3 +17,5 @@ hero_solver: false
 rune: false
 # true: 启动导航tf false：不启动导航tf
 navigation: false
+# true: 开启全向感知 false: 关闭全向感知
+omniperception: false

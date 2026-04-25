@@ -16,6 +16,8 @@
 #ifndef SERIAL_DRIVER__SENTRY_PROTOCOL_HPP_
 #define SERIAL_DRIVER__SENTRY_PROTOCOL_HPP_
 
+#include <atomic>
+
 // project
 #include "rm_interfaces/msg/chassis_cmd.hpp"
 #include "rm_serial_driver/protocol.hpp"
@@ -46,6 +48,7 @@ private:
   FixedPacketTool<32>::SharedPtr packet_tool_;
   FixedPacket<32> packet_;
   rm_interfaces::msg::ChassisCmd chassis_cmd_;
+  std::atomic_bool auto_aim_tracking_{false};
 };
 }  // namespace fyt::serial_driver::protocol
 

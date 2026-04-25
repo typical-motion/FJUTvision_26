@@ -1,0 +1,44 @@
+/**:
+  ros__parameters:
+    camera_count: 3
+    camera_devices: ["video0", "video2", "video4"]
+
+    usb:
+      width: 1280
+      height: 1024
+      fps: 120
+      exposure: 100
+      gamma: 80
+      gain: 15
+
+    enemy_color: "red"
+    binary_thres: 160
+
+    light:
+      min_ratio: 0.08
+      max_ratio: 0.4
+      max_angle: 40.0
+      color_diff_thresh: 25
+
+    armor:
+      min_light_ratio: 0.6
+      min_small_center_distance: 0.8
+      max_small_center_distance: 3.2
+      min_large_center_distance: 3.2
+      max_large_center_distance: 5.0
+      max_angle: 35.0
+
+    use_classifier: true
+    classifier_threshold: 0.7
+    ignore_classes: ["negative"]
+    use_pca: true
+    classifier_model: "package://armor_detector/model/lenet.onnx"
+    classifier_label: "package://armor_detector/model/label.txt"
+
+    camera_yaw_offsets_deg: [62.0, -62.0, 170.0]
+    camera_pitch_offsets_deg: [0.0, 0.0, 0.0]
+    fov_h_deg: 54.2
+    fov_v_deg: 44.5
+    ignore_outpost: true
+    ignore_base: true
+    ignore_numbers: ["negative"]

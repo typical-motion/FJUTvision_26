@@ -124,6 +124,18 @@ def generate_launch_description():
             ros_arguments=[],
         )
 
+    # 全向感知（开关打开时启动，作为auto_aim丢失目标时的兜底输入）
+    if launch_params.get('omniperception', False):
+        omniperception_node = Node(
+            package='rm_omniperception',
+            executable='rm_omniperception_node',
+            name='rm_omniperception',
+            output='both',
+            emulate_tty=True,
+            parameters=[get_params('omniperception')],
+            ros_arguments=[],
+        )
+
     # 打符
     rune_detector_node = ComposableNode(    
         package='rune_detector',
@@ -176,6 +188,11 @@ def generate_launch_description():
         period=2.0,
         actions=[rune_solver_node],
     )
+
+    delay_omniperception_node = TimerAction(
+        period=2.0,
+        actions=[omniperception_node] if launch_params.get('omniperception', False) else [],
+    )
     
     if launch_params['rune']:
         cam_detector_node = get_camera_detector_container(armor_detector_node, rune_detector_node)
@@ -201,5 +218,8 @@ def generate_launch_description():
     
     if launch_params['navigation']:
         launch_description_list.append(robot_navigation_publisher)
+
+    if launch_params.get('omniperception', False):
+        launch_description_list.append(delay_omniperception_node)
     
     return LaunchDescription(launch_description_list)

@@ -16,6 +16,8 @@
 #ifndef SERIAL_DRIVER_DEFAULT_PROTOCOL_HPP_
 #define SERIAL_DRIVER_DEFAULT_PROTOCOL_HPP_
 
+#include <atomic>
+
 #include "rm_serial_driver/protocol.hpp"
 
 namespace fyt::serial_driver::protocol {
@@ -39,6 +41,7 @@ public:
 
 private:
   FixedPacketTool<16>::SharedPtr packet_tool_;
+  std::atomic_bool auto_aim_tracking_{false};
 };
 }  // namespace fyt::serial_driver::protocol
 
