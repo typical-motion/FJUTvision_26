@@ -39,6 +39,12 @@
     camera_pitch_offsets_deg: [0.0, 0.0, 0.0]
     fov_h_deg: 54.2
     fov_v_deg: 44.5
+    # USB辅瞄相机FOV（可能使用不同镜头，与背部相机区分）
+    new_fov_h_deg: 54.2
+    new_fov_v_deg: 44.5
     ignore_outpost: true
     ignore_base: true
     ignore_numbers: ["negative"]
+    # 优先级模式: 1 = 英雄优先(3/4>1>5/sentry>2>前哨站/基地)
+    #             2 = 步兵优先(2>1/3/4/5>sentry/前哨站/基地)
+    priority_mode: 1

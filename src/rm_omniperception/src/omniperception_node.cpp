@@ -26,6 +26,10 @@ OmniPerceptionNode::OmniPerceptionNode(const rclcpp::NodeOptions &options)
 
   gimbal_cmd_pub_ = this->create_publisher<rm_interfaces::msg::GimbalCmd>(
       "omniperception/cmd_gimbal", rclcpp::SensorDataQoS());
+  set_mode_srv_ = this->create_service<rm_interfaces::srv::SetMode>(
+      "rm_omniperception/set_mode",
+      std::bind(&OmniPerceptionNode::setModeCallback, this,
+                std::placeholders::_1, std::placeholders::_2));
   timer_ = this->create_wall_timer(
       std::chrono::milliseconds(8),
       std::bind(&OmniPerceptionNode::onTimer, this));
@@ -91,16 +95,26 @@ Perceptron::DetectorConfig OmniPerceptionNode::readDetectorConfig() {
 
 Decider::Config OmniPerceptionNode::readDeciderConfig() {
   Decider::Config cfg;
+  cfg.camera_count = camera_count_;
   cfg.camera_yaw_offsets_deg = this->declare_parameter<std::vector<double>>(
       "camera_yaw_offsets_deg", {62.0, -62.0, 170.0});
   cfg.camera_pitch_offsets_deg = this->declare_parameter<std::vector<double>>(
       "camera_pitch_offsets_deg", {0.0, 0.0, 0.0});
   cfg.fov_h_deg = this->declare_parameter("fov_h_deg", 54.2);
   cfg.fov_v_deg = this->declare_parameter("fov_v_deg", 44.5);
+  cfg.new_fov_h_deg = this->declare_parameter("new_fov_h_deg", 54.2);
+  cfg.new_fov_v_deg = this->declare_parameter("new_fov_v_deg", 44.5);
   cfg.ignore_outpost = this->declare_parameter("ignore_outpost", true);
   cfg.ignore_base = this->declare_parameter("ignore_base", true);
   cfg.ignore_numbers = this->declare_parameter<std::vector<std::string>>(
       "ignore_numbers", std::vector<std::string>{"negative"});
+
+  const int priority_mode = this->declare_parameter("priority_mode", 1);
+  cfg.priority_mode = (priority_mode == 2) ? PriorityMode::MODE_TWO : PriorityMode::MODE_ONE;
+
+  const std::string enemy_color = this->declare_parameter("enemy_color", "red");
+  cfg.enemy_color = enemy_color;
+
   return cfg;
 }
 
@@ -123,6 +137,33 @@ void OmniPerceptionNode::onTimer() {
   cmd.distance = -1.0;
   cmd.fire_advice = !result.armors.empty();
   gimbal_cmd_pub_->publish(cmd);
+}
+
+void OmniPerceptionNode::setModeCallback(
+    const std::shared_ptr<rm_interfaces::srv::SetMode::Request> request,
+    std::shared_ptr<rm_interfaces::srv::SetMode::Response> response) {
+  response->success = true;
+  response->message = "0";
+
+  const fyt::VisionMode mode = static_cast<fyt::VisionMode>(request->mode);
+
+  switch (mode) {
+  case fyt::VisionMode::AUTO_AIM_RED: {
+    perceptron_->setEnemyColor(fyt::EnemyColor::RED);
+    RCLCPP_INFO(this->get_logger(), "OmniPerception set to RED");
+    break;
+  }
+  case fyt::VisionMode::AUTO_AIM_BLUE: {
+    perceptron_->setEnemyColor(fyt::EnemyColor::BLUE);
+    RCLCPP_INFO(this->get_logger(), "OmniPerception set to BLUE");
+    break;
+  }
+  default: {
+    // Rune modes — no action needed for omniperception
+    response->success = true;
+    break;
+  }
+  }
 }
 
 } // namespace rm_omniperception

@@ -7,6 +7,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include "rm_interfaces/msg/gimbal_cmd.hpp"
+#include "rm_interfaces/srv/set_mode.hpp"
 #include "rm_omniperception/omniperception/perceptron.hpp"
 #include "rm_omniperception/usbcamera/usbcamera.hpp"
 
@@ -20,6 +21,9 @@ public:
 private:
   void onTimer();
   void initCameras();
+  void setModeCallback(
+    const std::shared_ptr<rm_interfaces::srv::SetMode::Request> request,
+    std::shared_ptr<rm_interfaces::srv::SetMode::Response> response);
   Perceptron::DetectorConfig readDetectorConfig();
   Decider::Config readDeciderConfig();
 
@@ -30,6 +34,7 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Publisher<rm_interfaces::msg::GimbalCmd>::SharedPtr gimbal_cmd_pub_;
+  rclcpp::Service<rm_interfaces::srv::SetMode>::SharedPtr set_mode_srv_;
 };
 
 } // namespace rm_omniperception

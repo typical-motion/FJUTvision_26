@@ -143,6 +143,8 @@ std::vector<rclcpp::Client<rm_interfaces::srv::SetMode>::SharedPtr> ProtocolSent
                                                                   rmw_qos_profile_services_default);
   auto client2 = node->create_client<rm_interfaces::srv::SetMode>("armor_solver/set_mode",
                                                                   rmw_qos_profile_services_default);
-  return {client1, client2};
+  auto client3 = node->create_client<rm_interfaces::srv::SetMode>("rm_omniperception/set_mode",
+                                                                  rmw_qos_profile_services_default);
+  return {client1, client2, client3};
 }
 }  // namespace fyt::serial_driver::protocol

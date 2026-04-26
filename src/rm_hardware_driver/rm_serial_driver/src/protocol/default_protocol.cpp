@@ -55,8 +55,12 @@ std::vector<rclcpp::SubscriptionBase::SharedPtr> DefaultProtocol::getSubscriptio
 
 std::vector<rclcpp::Client<rm_interfaces::srv::SetMode>::SharedPtr> DefaultProtocol::getClients(
   rclcpp::Node::SharedPtr node) const {
-  return {node->create_client<rm_interfaces::srv::SetMode>("armor_detector/set_mode",
-                                                           rmw_qos_profile_services_default)};
+  return {
+    node->create_client<rm_interfaces::srv::SetMode>("armor_detector/set_mode",
+                                                     rmw_qos_profile_services_default),
+    node->create_client<rm_interfaces::srv::SetMode>("rm_omniperception/set_mode",
+                                                     rmw_qos_profile_services_default)
+  };
 }
 
 void DefaultProtocol::send(const rm_interfaces::msg::GimbalCmd &data) {

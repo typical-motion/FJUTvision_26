@@ -40,7 +40,15 @@ public:
       DetectorConfig detector_config);
   ~Perceptron();
 
+  // 取经过优先级排序后的最新检测结果
   bool popLatestDetection(DetectionResult &result);
+
+  void setEnemyColor(fyt::EnemyColor color);
+
+  // 接收无敌装甲板 ID
+  void receiveInvincibleArmor(const std::vector<int8_t> &invincible_enemy_ids);
+
+  Decider &decider() { return decider_; }
 
 private:
   std::unique_ptr<fyt::auto_aim::Detector> createDetector() const;

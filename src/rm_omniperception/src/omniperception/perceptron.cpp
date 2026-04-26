@@ -40,9 +40,33 @@ bool Perceptron::popLatestDetection(DetectionResult &result) {
   if (detection_queue_.empty()) {
     return false;
   }
-  result = detection_queue_.back();
+
+  std::vector<DetectionResult> sorted(
+      std::make_move_iterator(detection_queue_.begin()),
+      std::make_move_iterator(detection_queue_.end()));
   detection_queue_.clear();
+
+  decider_.sort(sorted);
+
+  if (sorted.empty()) {
+    return false;
+  }
+
+  result = std::move(sorted.front());
   return true;
+}
+
+void Perceptron::setEnemyColor(fyt::EnemyColor color) {
+  detector_config_.enemy_color = color;
+  for (auto &detector : detectors_) {
+    if (detector) {
+      detector->detect_color = color;
+    }
+  }
+}
+
+void Perceptron::receiveInvincibleArmor(const std::vector<int8_t> &invincible_enemy_ids) {
+  decider_.get_invincible_armor(invincible_enemy_ids);
 }
 
 std::unique_ptr<fyt::auto_aim::Detector> Perceptron::createDetector() const {
