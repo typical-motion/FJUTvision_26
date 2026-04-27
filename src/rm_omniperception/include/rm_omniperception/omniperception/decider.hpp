@@ -31,6 +31,7 @@ public:
     double new_fov_v_deg = 44.5;
     bool ignore_outpost = true;
     bool ignore_base = true;
+    bool ignore_enemy_two = true;
     std::vector<std::string> ignore_numbers{"negative"};
     PriorityMode priority_mode = PriorityMode::MODE_ONE;
     std::string enemy_color = "red";
@@ -45,7 +46,6 @@ public:
       std::chrono::steady_clock::time_point timestamp) const;
 
   bool armor_filter(std::vector<fyt::auto_aim::Armor> &armors) const;
-  void set_priority(std::vector<fyt::auto_aim::Armor> &armors) const;
   void sort(std::vector<DetectionResult> &detection_queue) const;
 
   void get_invincible_armor(const std::vector<int8_t> &invincible_enemy_ids);

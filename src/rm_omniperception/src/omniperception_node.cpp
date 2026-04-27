@@ -108,6 +108,7 @@ Decider::Config OmniPerceptionNode::readDeciderConfig() {
   cfg.ignore_base = this->declare_parameter("ignore_base", true);
   cfg.ignore_numbers = this->declare_parameter<std::vector<std::string>>(
       "ignore_numbers", std::vector<std::string>{"negative"});
+  cfg.ignore_enemy_two = this->declare_parameter("ignore_enemy_two", true);
 
   const int priority_mode = this->declare_parameter("priority_mode", 1);
   cfg.priority_mode = (priority_mode == 2) ? PriorityMode::MODE_TWO : PriorityMode::MODE_ONE;

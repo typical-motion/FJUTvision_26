@@ -24,7 +24,6 @@ std::optional<DetectionResult> Decider::makeDetection(
     return std::nullopt;
   }
 
-  set_priority(filtered);
   std::sort(filtered.begin(), filtered.end(),
     [this](const fyt::auto_aim::Armor &a, const fyt::auto_aim::Armor &b) {
       return getPriority(a.number) < getPriority(b.number);
@@ -75,6 +74,12 @@ bool Decider::armor_filter(std::vector<fyt::auto_aim::Armor> &armors) const {
   armors.erase(std::remove_if(armors.begin(), armors.end(),
     [](const auto &a) { return a.number == "5"; }), armors.end());
 
+  // 可选战术: 完全不瞄准敌方2号(工程)
+  if (config_.ignore_enemy_two) {
+    armors.erase(std::remove_if(armors.begin(), armors.end(),
+      [](const auto &a) { return a.number == "2"; }), armors.end());
+  }
+
   // 过滤无敌状态的装甲板
   if (!invincible_armors_.empty()) {
     armors.erase(std::remove_if(armors.begin(), armors.end(),
@@ -87,9 +92,6 @@ bool Decider::armor_filter(std::vector<fyt::auto_aim::Armor> &armors) const {
   return armors.empty();
 }
 
-void Decider::set_priority(std::vector<fyt::auto_aim::Armor> &armors) const {
-  (void)armors;
-}
 
 void Decider::sort(std::vector<DetectionResult> &detection_queue) const {
   if (detection_queue.empty()) return;
@@ -98,7 +100,6 @@ void Decider::sort(std::vector<DetectionResult> &detection_queue) const {
     if (armor_filter(dr.armors)) {
       continue;
     }
-    set_priority(dr.armors);
     std::sort(dr.armors.begin(), dr.armors.end(),
       [this](const fyt::auto_aim::Armor &a, const fyt::auto_aim::Armor &b) {
         return getPriority(a.number) < getPriority(b.number);

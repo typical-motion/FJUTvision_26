@@ -35,7 +35,7 @@
     classifier_model: "package://armor_detector/model/lenet.onnx"
     classifier_label: "package://armor_detector/model/label.txt"
 
-    camera_yaw_offsets_deg: [62.0, -62.0, 170.0]
+    camera_yaw_offsets_deg: [62.0, -62.0, 180.0]
     camera_pitch_offsets_deg: [0.0, 0.0, 0.0]
     fov_h_deg: 54.2
     fov_v_deg: 44.5
@@ -45,6 +45,8 @@
     ignore_outpost: true
     ignore_base: true
     ignore_numbers: ["negative"]
+    # 可选: 完全不瞄准敌方2号(工程) (与 armor_solver target.ignore_enemy_two 对齐)
+    ignore_enemy_two: true
     # 优先级模式: 1 = 英雄优先(3/4>1>5/sentry>2>前哨站/基地)
     #             2 = 步兵优先(2>1/3/4/5>sentry/前哨站/基地)
     priority_mode: 1
