@@ -54,6 +54,11 @@ TinyMpcPlanner::~TinyMpcPlanner() {
     delete pitch_solver_;
     pitch_solver_ = nullptr;
   }
+
+  delete yaw_x_warm_;
+  delete yaw_u_warm_;
+  delete pitch_x_warm_;
+  delete pitch_u_warm_;
 }
 
 void TinyMpcPlanner::refreshParams() {
@@ -125,6 +130,29 @@ void TinyMpcPlanner::setupSolvers() {
   Eigen::MatrixXd B{{0.0}, {dt_}};
   Eigen::VectorXd f{{0.0, 0.0}};
 
+  // Save warm-start trajectories from previous solvers before rebuild
+  const bool has_warm = (yaw_solver_ != nullptr) && (pitch_solver_ != nullptr);
+  if (has_warm) {
+    yaw_x_warm_ = new tinyMatrix(yaw_solver_->work->x);
+    yaw_u_warm_ = new tinyMatrix(yaw_solver_->work->u);
+    pitch_x_warm_ = new tinyMatrix(pitch_solver_->work->x);
+    pitch_u_warm_ = new tinyMatrix(pitch_solver_->work->u);
+
+    delete yaw_solver_->solution;
+    delete yaw_solver_->cache;
+    delete yaw_solver_->settings;
+    delete yaw_solver_->work;
+    delete yaw_solver_;
+    yaw_solver_ = nullptr;
+
+    delete pitch_solver_->solution;
+    delete pitch_solver_->cache;
+    delete pitch_solver_->settings;
+    delete pitch_solver_->work;
+    delete pitch_solver_;
+    pitch_solver_ = nullptr;
+  }
+
   tiny_setup(&yaw_solver_,
              A,
              B,
@@ -159,8 +187,25 @@ void TinyMpcPlanner::setupSolvers() {
   tiny_set_bound_constraints(yaw_solver_, x_min, x_max, yaw_u_min, yaw_u_max);
   tiny_set_bound_constraints(pitch_solver_, x_min, x_max, pitch_u_min, pitch_u_max);
 
-  yaw_solver_->settings->max_iter = 10;
-  pitch_solver_->settings->max_iter = 10;
+  yaw_solver_->settings->max_iter = 25;
+  pitch_solver_->settings->max_iter = 25;
+
+  // Restore warm-start trajectories to avoid cold-start jumps after Q/R change
+  if (has_warm) {
+    yaw_solver_->work->x = *yaw_x_warm_;
+    yaw_solver_->work->u = *yaw_u_warm_;
+    pitch_solver_->work->x = *pitch_x_warm_;
+    pitch_solver_->work->u = *pitch_u_warm_;
+
+    delete yaw_x_warm_;
+    delete yaw_u_warm_;
+    delete pitch_x_warm_;
+    delete pitch_u_warm_;
+    yaw_x_warm_ = nullptr;
+    yaw_u_warm_ = nullptr;
+    pitch_x_warm_ = nullptr;
+    pitch_u_warm_ = nullptr;
+  }
 }
 
 double TinyMpcPlanner::normalizeAngle(double angle) {
@@ -367,13 +412,28 @@ TinyMpcPlanner::PlanResult TinyMpcPlanner::plan(const rm_interfaces::msg::Target
   const int idx = kHalfHorizon;
   const int fire_idx = std::clamp(idx + shoot_offset_, 0, kHorizon - 1);
 
+  double raw_yaw = normalizeAngle(yaw_solver_->work->x(0, idx) + yaw0);
+  double raw_pitch = pitch_solver_->work->x(0, idx);
+
+  // Exponential moving average smoothing to suppress residual jumps
+  if (!smoothing_initialized_) {
+    smoothed_yaw_ = raw_yaw;
+    smoothed_pitch_ = raw_pitch;
+    smoothing_initialized_ = true;
+  } else {
+    // Handle angle wrap for yaw smoothing
+    double diff = normalizeAngle(raw_yaw - smoothed_yaw_);
+    smoothed_yaw_ = normalizeAngle(smoothed_yaw_ + kSmoothingAlpha * diff);
+    smoothed_pitch_ = smoothed_pitch_ + kSmoothingAlpha * (raw_pitch - smoothed_pitch_);
+  }
+
   result.valid = true;
   result.target_yaw = target_yaw;
   result.target_pitch = target_pitch;
   result.aim_distance = aim_distance;
   result.aim_height = aim_height;
-  result.plan_yaw = normalizeAngle(yaw_solver_->work->x(0, idx) + yaw0);
-  result.plan_pitch = pitch_solver_->work->x(0, idx);
+  result.plan_yaw = smoothed_yaw_;
+  result.plan_pitch = smoothed_pitch_;
 
   const double yaw_err = normalizeAngle(traj(0, fire_idx) - yaw_solver_->work->x(0, fire_idx));
   const double pitch_err = traj(2, fire_idx) - pitch_solver_->work->x(0, fire_idx);

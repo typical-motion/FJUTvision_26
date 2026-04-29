@@ -113,6 +113,18 @@ private:
   Eigen::Vector2d q_pitch_{40.0, 1.0};
   Eigen::VectorXd r_pitch_{Eigen::VectorXd::Constant(1, 40.0)};
 
+  // Warm-start buffers for solver rebuild (preserved across Q/R changes)
+  tinyMatrix *yaw_x_warm_{nullptr};
+  tinyMatrix *yaw_u_warm_{nullptr};
+  tinyMatrix *pitch_x_warm_{nullptr};
+  tinyMatrix *pitch_u_warm_{nullptr};
+
+  // Output exponential smoothing state
+  bool smoothing_initialized_{false};
+  double smoothed_yaw_{0.0};
+  double smoothed_pitch_{0.0};
+  static constexpr double kSmoothingAlpha = 0.3;  // Lower = more smoothing
+
   // Keep previous Q/R values to detect changes
   Eigen::Vector2d q_yaw_prev_{40.0, 1.0};
   Eigen::VectorXd r_yaw_prev_{Eigen::VectorXd::Constant(1, 40.0)};
