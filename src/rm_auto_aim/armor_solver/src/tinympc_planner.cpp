@@ -263,6 +263,27 @@ Eigen::Vector3d TinyMpcPlanner::getClosestArmorPosition(const Eigen::Vector3d &t
   return picked;
 }
 
+TinyMpcPlanner::AimPoint TinyMpcPlanner::computeAimForArmor(
+    const Eigen::Vector3d &armor_position,
+    TrajectoryCompensator *trajectory_compensator,
+    double bullet_speed) const {
+  double yaw = std::atan2(armor_position.y(), armor_position.x()) + yaw_offset_;
+  double pitch = std::atan2(armor_position.z(), armor_position.head<2>().norm());
+
+  if (trajectory_compensator != nullptr) {
+    trajectory_compensator->velocity = bullet_speed;
+    double compensated_pitch = pitch;
+    if (!trajectory_compensator->compensate(armor_position, compensated_pitch)) {
+      throw std::runtime_error("Unsolvable bullet trajectory");
+    }
+    pitch = compensated_pitch;
+  }
+
+  pitch -= pitch_offset_;
+
+  return {normalizeAngle(yaw), pitch, armor_position.x(), armor_position.y(), armor_position.z()};
+}
+
 TinyMpcPlanner::AimPoint TinyMpcPlanner::computeAim(const Eigen::Vector3d &target_center,
                                                     double target_yaw,
                                                     double r1,
@@ -274,22 +295,7 @@ TinyMpcPlanner::AimPoint TinyMpcPlanner::computeAim(const Eigen::Vector3d &targe
                                                     double bullet_speed) const {
   const Eigen::Vector3d picked =
     getClosestArmorPosition(target_center, target_yaw, r1, r2, d_zc, d_za, armors_num);
-
-  double yaw = std::atan2(picked.y(), picked.x()) + yaw_offset_;
-  double pitch = std::atan2(picked.z(), picked.head<2>().norm());
-
-  if (trajectory_compensator != nullptr) {
-    trajectory_compensator->velocity = bullet_speed;
-    double compensated_pitch = pitch;
-    if (!trajectory_compensator->compensate(picked, compensated_pitch)) {
-      throw std::runtime_error("Unsolvable bullet trajectory");
-    }
-    pitch = compensated_pitch;
-  }
-
-  pitch -= pitch_offset_;
-
-  return {normalizeAngle(yaw), pitch, picked.x(), picked.y(), picked.z()};
+  return computeAimForArmor(picked, trajectory_compensator, bullet_speed);
 }
 
 TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::msg::Target &target,
@@ -316,6 +322,32 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
                                                                    low_speed_delay_time_;
   const double base_t = dt_to_now + prediction_delay + decision_delay;
 
+  // Lock armor index at horizon center to keep reference trajectory self-consistent.
+  // Without this, each step independently calls getClosestArmorPosition(), which can
+  // flip between armor plates near the equidistant boundary, injecting 30°-50° spikes
+  // into the MPC reference and causing the solver to produce sharp yaw transients.
+  const double center_t = base_t;
+  const Eigen::Vector3d center_pos = center0 + velocity * center_t;
+  const double center_yaw = target.yaw + target.v_yaw * center_t;
+  const auto center_armors = getArmorPositions(center_pos,
+                                               center_yaw,
+                                               target.radius_1,
+                                               target.radius_2,
+                                               target.d_zc,
+                                               target.d_za,
+                                               static_cast<size_t>(target.armors_num));
+  size_t locked_idx = 0;
+  {
+    double min_dist = std::numeric_limits<double>::max();
+    for (size_t j = 0; j < center_armors.size(); ++j) {
+      const double dist = center_armors[j].head<2>().norm();
+      if (dist < min_dist) {
+        min_dist = dist;
+        locked_idx = j;
+      }
+    }
+  }
+
   for (int i = 0; i < kHorizon; i++) {
     const double local_t = (static_cast<double>(i) - kHalfHorizon) * dt_;
     const double t = base_t + local_t;
@@ -323,15 +355,15 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
     const Eigen::Vector3d center = center0 + velocity * t;
     const double yaw = target.yaw + target.v_yaw * t;
 
-    aim_points[i] = computeAim(center,
-                               yaw,
-                               target.radius_1,
-                               target.radius_2,
-                               target.d_zc,
-                               target.d_za,
-                               static_cast<size_t>(target.armors_num),
-                               trajectory_compensator,
-                               bullet_speed);
+    // Use the same locked armor index for every step to avoid intra-trajectory switching
+    const auto armors = getArmorPositions(center,
+                                          yaw,
+                                          target.radius_1,
+                                          target.radius_2,
+                                          target.d_zc,
+                                          target.d_za,
+                                          static_cast<size_t>(target.armors_num));
+    aim_points[i] = computeAimForArmor(armors[locked_idx], trajectory_compensator, bullet_speed);
   }
 
   yaw0 = aim_points[kHalfHorizon].yaw;

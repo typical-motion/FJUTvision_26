@@ -463,7 +463,8 @@ Solver::solve()
     TinyMpcPlanner::plan()
       ├─ refreshParams()         ← 运行时热更新 Q/R/阈值
       ├─ buildTrajectory()       ← 100 步参考轨迹
-      │    └─ 每步: 匀速外推 + getClosestArmorPosition() + computeAim()
+      │    ├─ 在 horizon 中心步选定装甲板 index 并锁定（避免轨迹内部切换导致 yaw 尖峰）
+      │    └─ 每步: 匀速外推 + getArmorPositions() + computeAimForArmor(锁定 index)
       │         └─ 弹道补偿 (TrajectoryCompensator::compensate)
       ├─ tiny_solve(yaw/pitch)   ← ADMM 求解带约束 MPC
       └─ PlanResult { plan_yaw, plan_pitch, fire, aim_distance, aim_height }

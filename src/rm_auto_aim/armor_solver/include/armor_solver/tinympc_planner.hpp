@@ -80,6 +80,11 @@ private:
                       TrajectoryCompensator *trajectory_compensator,
                       double bullet_speed) const;
 
+  // Compute aim point for a specific armor position (bypasses closest-pick)
+  AimPoint computeAimForArmor(const Eigen::Vector3d &armor_position,
+                              TrajectoryCompensator *trajectory_compensator,
+                              double bullet_speed) const;
+
   Trajectory buildTrajectory(const rm_interfaces::msg::Target &target,
                              const rclcpp::Time &current_time,
                              TrajectoryCompensator *trajectory_compensator,
