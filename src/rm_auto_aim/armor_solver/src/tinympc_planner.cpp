@@ -315,12 +315,21 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
 
   const double dt_to_now = (current_time - rclcpp::Time(target.header.stamp)).seconds();
 
-  // NOTE: Flying time has already been applied in armor_solver.cpp (line 103-104)
-  // The Target message's position is already predicted with flying_time included in dt.
-  // We only add decision_delay here to avoid double-counting fly_time.
+  // Decision delay: extra look-ahead to compensate for comm/mechanical latency.
+  // This is separate from flying_time (bullet travel time) which is added below.
   const double decision_delay = std::abs(target.v_yaw) > decision_speed_ ? high_speed_delay_time_ :
                                                                    low_speed_delay_time_;
-  const double base_t = dt_to_now + prediction_delay + decision_delay;
+
+  // Compute flying_time at the nominal center of the MPC horizon (without yet
+  // including flying_time itself — first-order approximation).
+  // Flying time is the physical bullet travel time and must be added so that
+  // the reference trajectory aims at where the target WILL be when the bullet
+  // arrives, not where it IS when the bullet is fired.
+  const double nominal_center_t = dt_to_now + prediction_delay + decision_delay;
+  const Eigen::Vector3d nominal_center_pos = center0 + velocity * nominal_center_t;
+  const double flying_time = trajectory_compensator->getFlyingTime(nominal_center_pos);
+
+  const double base_t = nominal_center_t + flying_time;
 
   // Lock armor index at horizon center to keep reference trajectory self-consistent.
   // Without this, each step independently calls getClosestArmorPosition(), which can

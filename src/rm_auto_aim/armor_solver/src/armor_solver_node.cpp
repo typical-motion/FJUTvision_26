@@ -137,11 +137,14 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
   const double r_yaw_gain = declare_parameter("ekf.r_yaw_gain", 6.0);
   const double r_missing_quality_scale =
     declare_parameter("ekf.r_missing_quality_scale", 4.0);
+  const double r_occlusion_gain =
+    declare_parameter("ekf.r_occlusion_gain", 2.0);
   auto u_r = [this,
               r_quality_clip,
               r_position_gain,
               r_yaw_gain,
-              r_missing_quality_scale](const Eigen::Matrix<double, Z_N, 1> &z) {
+              r_missing_quality_scale,
+              r_occlusion_gain](const Eigen::Matrix<double, Z_N, 1> &z) {
     Eigen::Matrix<double, Z_N, Z_N> r;
     const bool use_legacy_noise_model =
       this->get_parameter("ekf.use_legacy_noise_model").as_bool();
@@ -167,6 +170,14 @@ ArmorSolverNode::ArmorSolverNode(const rclcpp::NodeOptions &options)
       position_scale *= r_missing_quality_scale;
       yaw_scale *= r_missing_quality_scale;
     }
+    // Yaw-angle feedforward: side-facing armors (yaw ≈ ±45°, ±135°) suffer
+    // from partial light-bar occlusion, causing PnP to overestimate distance.
+    // Inflate R in those regimes to make the EKF rely more on motion-model
+    // prediction and less on the systematically biased measurement.
+    // sin(2θ) peaks at θ=45°,135° (occlusion worst) and is zero at 0°,90°,180°.
+    double yaw_normalized = std::fmod(std::abs(z[3]), M_PI);
+    double occlusion_factor = 1.0 + r_occlusion_gain * std::abs(std::sin(2.0 * yaw_normalized));
+    position_scale *= occlusion_factor;
     position_scale = std::clamp(position_scale, 0.1, 100.0);
     yaw_scale = std::clamp(yaw_scale, 0.1, 100.0);
     // clang-format off
