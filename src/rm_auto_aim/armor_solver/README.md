@@ -38,7 +38,6 @@
 * `ekf.r_position_gain` (`double`, default: 6.0) - 位置质量到 R 缩放的增益
 * `ekf.r_yaw_gain` (`double`, default: 6.0) - yaw 质量到 R 缩放的增益
 * `ekf.r_missing_quality_scale` (`double`, default: 4.0) - 质量缺失时额外放大系数
-* `ekf.r_occlusion_gain` (`double`, default: 2.0) - yaw 角先验增益。侧向观测 (yaw≈±45°, ±135°) 时灯条部分遮挡导致 PnP 距离偏高，此参数控制 R 矩阵在侧向角度时的膨胀幅度。0 则关闭此前馈
 * `tracker.max_match_distance` (`double`, default: 0.2) - 两帧间目标可匹配的最大距离
 * `tracker.max_match_yaw_diff` (`double`, default: 1.0) - 两帧间目标同一块装甲板可匹配的最大 yaw 角差（大于该值视为跳变）
 * `tracker.tracking_thres` (`int`, default: 5) - `DETECTING` 状态进入 `TRACKING` 状态需要连续识别到的帧数

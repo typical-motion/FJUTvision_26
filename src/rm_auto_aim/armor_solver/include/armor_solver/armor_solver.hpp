@@ -104,6 +104,9 @@ private:
   double side_angle_;
   double min_switching_v_yaw_;
 
+  // Outpost spiral staircase: adjacent plates differ by this height (meters)
+  double outpost_step_height_;
+
   std::weak_ptr<rclcpp::Node> node_;
 };
 }  // namespace fyt::auto_aim

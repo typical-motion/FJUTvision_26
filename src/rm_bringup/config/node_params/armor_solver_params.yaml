@@ -41,6 +41,7 @@
       max_tracking_v_yaw: 60.0 #转速(rad/s)大于这个值时瞄准机器人中心 
       side_angle: 14.0
       min_switching_v_yaw: 2.5
+      outpost_step_height: 0.1  # spiral staircase: height diff between adjacent outpost plates (meters)
       bullet_speed: 24.0
       compensator_type: "ideal"
       gravity: 10.0

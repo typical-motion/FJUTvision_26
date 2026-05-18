@@ -36,6 +36,9 @@ Solver::Solver(std::weak_ptr<rclcpp::Node> n)
   controller_delay_ = node->declare_parameter("solver.controller_delay", 0.0);
   side_angle_ = node->declare_parameter("solver.side_angle", 15.0);
   min_switching_v_yaw_ = node->declare_parameter("solver.min_switching_v_yaw", 1.0);
+  outpost_step_height_ = node->has_parameter("solver.outpost_step_height")
+                           ? node->get_parameter("solver.outpost_step_height").as_double()
+                           : node->declare_parameter("solver.outpost_step_height", 0.1);
 
   std::string compenstator_type = node->declare_parameter("solver.compensator_type", "ideal");
   trajectory_compensator_ = CompensatorFactory::createCompensator(compenstator_type);
@@ -73,6 +76,7 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
     controller_delay_ = node->get_parameter("solver.controller_delay").as_double();
     side_angle_ = node->get_parameter("solver.side_angle").as_double();
     min_switching_v_yaw_ = node->get_parameter("solver.min_switching_v_yaw").as_double();
+    outpost_step_height_ = node->get_parameter("solver.outpost_step_height").as_double();
     use_tinympc_ = node->get_parameter("solver.use_tinympc").as_bool();
     if (use_tinympc_ && !tinympc_planner_) {
       tinympc_planner_ = std::make_unique<TinyMpcPlanner>(node_);
@@ -272,6 +276,10 @@ std::vector<Eigen::Vector3d> Solver::getArmorPositions(const Eigen::Vector3d &ta
       r = is_current_pair ? r1 : r2;
       target_dz = d_zc + (is_current_pair ? 0 : d_za);
       is_current_pair = !is_current_pair;
+    } else if (armors_num == 3) {
+      // Outpost spiral staircase: plate i is i*step higher than plate 0
+      r = r1;
+      target_dz = d_zc + i * outpost_step_height_;
     } else {
       r = r1;
       target_dz = d_zc;

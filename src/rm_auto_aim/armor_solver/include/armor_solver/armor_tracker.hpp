@@ -23,6 +23,7 @@
 // std
 #include <memory>
 #include <string>
+#include <vector>
 // ros2
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -77,8 +78,11 @@ public:
   // To store another pair of armors message
   double d_za, another_r;
 
-  // To store offset relative to the reference plane
+  // To store offset relative to the reference plane (plate 0 for outpost spiral)
   double d_zc;
+
+  // Outpost spiral staircase: adjacent plates differ by this height (meters)
+  double outpost_step_height_;
 
   bool diverged() const noexcept;
 
@@ -93,7 +97,14 @@ private:
 
   double orientationToYaw(const geometry_msgs::msg::Quaternion &q) noexcept;
 
-  static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd &x) noexcept;
+  static Eigen::Vector3d getArmorPositionFromState(const Eigen::VectorXd &x,
+                                                    int plate_idx = 0,
+                                                    double step_height = 0.0) noexcept;
+
+  // For outpost: determine which plate index (0-2) best matches measured position
+  static int matchOutpostPlateIndex(const Eigen::VectorXd &state,
+                                    const Eigen::Vector3d &measured_pos,
+                                    double step_height) noexcept;
 
   double max_match_distance_;
   double max_match_yaw_diff_;

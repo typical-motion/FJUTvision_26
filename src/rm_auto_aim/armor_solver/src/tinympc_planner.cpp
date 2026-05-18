@@ -365,13 +365,14 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
     const double yaw = target.yaw + target.v_yaw * t;
 
     // Use the same locked armor index for every step to avoid intra-trajectory switching
-    const auto armors = getArmorPositions(center,
-                                          yaw,
-                                          target.radius_1,
-                                          target.radius_2,
-                                          target.d_zc,
-                                          target.d_za,
-                                          static_cast<size_t>(target.armors_num));
+    auto armors = getArmorPositions(center,
+                                    yaw,
+                                    target.radius_1,
+                                    target.radius_2,
+                                    target.d_zc,
+                                    target.d_za,
+                                    static_cast<size_t>(target.armors_num));
+
     aim_points[i] = computeAimForArmor(armors[locked_idx], trajectory_compensator, bullet_speed);
   }
 
