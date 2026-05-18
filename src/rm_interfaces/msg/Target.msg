@@ -12,3 +12,5 @@ float64 d_za
 float64 d_zc
 float64 yaw_diff
 float64 position_diff
+# Raw PnP armor z observation — bypasses EKF smoothing for outpost pitch responsiveness
+float64 raw_armor_z 0.0

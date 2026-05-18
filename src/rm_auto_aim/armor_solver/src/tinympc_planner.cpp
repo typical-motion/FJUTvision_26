@@ -365,13 +365,21 @@ TinyMpcPlanner::Trajectory TinyMpcPlanner::buildTrajectory(const rm_interfaces::
     const double yaw = target.yaw + target.v_yaw * t;
 
     // Use the same locked armor index for every step to avoid intra-trajectory switching
-    const auto armors = getArmorPositions(center,
-                                          yaw,
-                                          target.radius_1,
-                                          target.radius_2,
-                                          target.d_zc,
-                                          target.d_za,
-                                          static_cast<size_t>(target.armors_num));
+    auto armors = getArmorPositions(center,
+                                    yaw,
+                                    target.radius_1,
+                                    target.radius_2,
+                                    target.d_zc,
+                                    target.d_za,
+                                    static_cast<size_t>(target.armors_num));
+
+    // For outpost, use the raw PnP z observation at the horizon center so the
+    // pitch reference reacts instantly to plate height changes instead of
+    // waiting for EKF d_zc to converge.
+    if (i == kHalfHorizon && target.id == "outpost" && target.raw_armor_z != 0.0) {
+      armors[locked_idx].z() = target.raw_armor_z;
+    }
+
     aim_points[i] = computeAimForArmor(armors[locked_idx], trajectory_compensator, bullet_speed);
   }
 

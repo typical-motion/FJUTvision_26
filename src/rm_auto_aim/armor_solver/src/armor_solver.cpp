@@ -118,6 +118,13 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
     throw std::runtime_error("No valid armor to shoot");
   }
 
+  // For outpost, use the raw PnP z observation so pitch responds instantly to
+  // height differences between plates. The EKF-smoothed d_zc can lag behind
+  // when the selected plate changes.
+  if (target.id == "outpost" && target.raw_armor_z != 0.0) {
+    chosen_armor_position.z() = target.raw_armor_z;
+  }
+
   // Calculate yaw, pitch, distance
   double yaw, pitch;
   calcYawAndPitch(chosen_armor_position, rpy_, yaw, pitch);
