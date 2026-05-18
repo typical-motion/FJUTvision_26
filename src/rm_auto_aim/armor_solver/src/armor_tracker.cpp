@@ -165,7 +165,13 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
   }
 
   // Prevent radius from spreading
-  if (target_state(8) < 0.05) {
+  // Outpost has fixed radius (distance from center to armor plate)
+  // and bounded angular velocity (max 0.8π rad/s)
+  if (tracked_id == "outpost") {
+    target_state(8) = 0.275;
+    target_state(7) = std::clamp(target_state(7), -0.8 * M_PI, 0.8 * M_PI);
+    ekf->setState(target_state);
+  } else if (target_state(8) < 0.05) {
     target_state(8) = 0.05;
     ekf->setState(target_state);
   } else if (target_state(8) > 0.5) {
