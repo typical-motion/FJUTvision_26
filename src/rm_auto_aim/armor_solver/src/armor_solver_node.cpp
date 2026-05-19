@@ -471,9 +471,13 @@ void ArmorSolverNode::publishMarkers(const rm_interfaces::msg::Target &target_ms
         r = is_current_pair ? r1 : r2;
         p_a.z = zc + d_zc +  (is_current_pair ? 0 : d_za);
         is_current_pair = !is_current_pair;
+      } else if (a_n == 3) {
+        r = r1;
+        p_a.z = zc + d_zc +  (is_current_pair ? 0 : d_za);
+        is_current_pair = !is_current_pair;
       } else {
         r = r1;
-        p_a.z = zc;
+        p_a.z = zc + d_zc;
       }
       p_a.x = xc - r * cos(tmp_yaw);
       p_a.y = yc - r * sin(tmp_yaw);

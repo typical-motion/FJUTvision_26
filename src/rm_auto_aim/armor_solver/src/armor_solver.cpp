@@ -272,6 +272,10 @@ std::vector<Eigen::Vector3d> Solver::getArmorPositions(const Eigen::Vector3d &ta
       r = is_current_pair ? r1 : r2;
       target_dz = d_zc + (is_current_pair ? 0 : d_za);
       is_current_pair = !is_current_pair;
+    } else if (armors_num == 3) {
+      r = r1;
+      target_dz = d_zc + (is_current_pair ? 0 : d_za);
+      is_current_pair = !is_current_pair;
     } else {
       r = r1;
       target_dz = d_zc;

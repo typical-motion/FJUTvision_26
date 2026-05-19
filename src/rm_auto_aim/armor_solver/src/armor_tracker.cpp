@@ -242,10 +242,11 @@ void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
   if (std::abs(yaw - last_yaw) > 0.4) {
     // Armor angle also jumped, take this case as target spinning
     target_state(6) = yaw;
-    // Only 4 armors has 2 radius and height
-    if (tracked_armors_num == ArmorsNum::NORMAL_4) {
+    if (tracked_armors_num == ArmorsNum::NORMAL_4 || tracked_armors_num == ArmorsNum::OUTPOST_3) {
       d_za = target_state(4) + target_state(9) - current_armor.pose.position.z;
-      std::swap(target_state(8), another_r);
+      if (tracked_armors_num == ArmorsNum::NORMAL_4) {
+        std::swap(target_state(8), another_r);
+      }
       d_zc = d_zc == 0 ? -d_za : 0;
       target_state(9) = d_zc;
     }
@@ -279,7 +280,7 @@ bool Tracker::diverged() const noexcept {
   auto r_ok = target_state(8) > 0.05 && target_state(8) < 0.5;
   auto l_ok = another_r > 0.05 && another_r < 0.5;
 
-  if (tracked_armors_num == ArmorsNum::NORMAL_4) {
+  if (tracked_armors_num == ArmorsNum::NORMAL_4 || tracked_armors_num == ArmorsNum::OUTPOST_3) {
     return !(r_ok && l_ok);
   }
 
