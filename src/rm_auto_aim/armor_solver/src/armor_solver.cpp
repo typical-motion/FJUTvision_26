@@ -232,7 +232,7 @@ std::vector<Eigen::Vector3d> Solver::getArmorPositions(const Eigen::Vector3d &ta
   double r = 0., target_dz = 0.;
   for (size_t i = 0; i < armors_num; i++) {
     double temp_yaw = target_yaw + i * (2 * M_PI / armors_num);
-    if (armors_num == 4) {
+    if (armors_num == 4 || armors_num == 3) {
       r = is_current_pair ? r1 : r2;
       target_dz = d_zc + (is_current_pair ? 0 : d_za);
       is_current_pair = !is_current_pair;

@@ -140,7 +140,11 @@ void Tracker::update(const Armors::SharedPtr &armors_msg) noexcept {
   }
 
   // Prevent radius from spreading
-  if (target_state(8) < 0.12) {
+  if (tracked_id == "outpost") {
+    target_state(8) = 0.275;
+    target_state(7) = std::clamp(target_state(7), -0.8 * M_PI, 0.8 * M_PI);
+    ekf->setState(target_state);
+  } else if (target_state(8) < 0.12) {
     target_state(8) = 0.12;
     ekf->setState(target_state);
   } else if (target_state(8) > 0.4) {
@@ -211,9 +215,11 @@ void Tracker::handleArmorJump(const Armor &current_armor) noexcept {
     // Armor angle also jumped, take this case as target spinning
     target_state(6) = yaw;
     // Only 4 armors has 2 radius and height
-    if (tracked_armors_num == ArmorsNum::NORMAL_4) {
+    if (tracked_armors_num == ArmorsNum::NORMAL_4 || tracked_armors_num == ArmorsNum::OUTPOST_3) {
       d_za = target_state(4) + target_state(9) - current_armor.pose.position.z;
+    if (tracked_armors_num == ArmorsNum::NORMAL_4) {
       std::swap(target_state(8), another_r);
+    }
       d_zc = d_zc == 0 ? -d_za : 0;
       target_state(9) = d_zc;
     }

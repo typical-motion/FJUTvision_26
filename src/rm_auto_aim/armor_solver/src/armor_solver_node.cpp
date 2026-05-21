@@ -394,7 +394,7 @@ void ArmorSolverNode::publishMarkers(const rm_interfaces::msg::Target &target_ms
     for (size_t i = 0; i < a_n; i++) {
       double tmp_yaw = yaw + i * (2 * M_PI / a_n);
       // Only 4 armors has 2 radius and height
-      if (a_n == 4) {
+      if (a_n == 4 || a_n == 3) {
         r = is_current_pair ? r1 : r2;
         p_a.z = zc + d_zc +  (is_current_pair ? 0 : d_za);
         is_current_pair = !is_current_pair;
