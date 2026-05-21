@@ -28,6 +28,7 @@ void ProtocolInfantry::send(const rm_interfaces::msg::GimbalCmd &data) {
   packet.loadData<float>(static_cast<float>(data.pitch), 2);
   packet.loadData<float>(static_cast<float>(data.yaw), 6);
   packet.loadData<float>(static_cast<float>(data.distance), 10);
+  packet.loadData<unsigned char>(data.armor_id, 14);
   packet_tool_->sendPacket(packet);
 }
 

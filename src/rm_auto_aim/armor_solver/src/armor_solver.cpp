@@ -118,6 +118,16 @@ rm_interfaces::msg::GimbalCmd Solver::solve(const rm_interfaces::msg::Target &ta
   gimbal_cmd.header = target.header;
   gimbal_cmd.distance = distance;
   gimbal_cmd.fire_advice = isOnTarget(rpy_[2], rpy_[1], yaw, pitch, distance);
+  // 将classifier识别的装甲板id写入GimbalCmd（1-7对应兵种，outpost=8）
+  if (target.id == "outpost") {
+    gimbal_cmd.armor_id = 8;
+  } else {
+    try {
+      gimbal_cmd.armor_id = static_cast<uint8_t>(std::stoi(target.id));
+    } catch (...) {
+      gimbal_cmd.armor_id = 0;
+    }
+  }
 
   switch (state) {
     case TRACKING_ARMOR: {
