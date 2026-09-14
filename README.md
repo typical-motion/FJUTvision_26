@@ -2,7 +2,7 @@
 
 > 福建理工大学苍侠战队 · FJUT · 26 赛季 RoboMaster 视觉项目
 
-本项目基于 [typical-motion/FYT2024_vision](https://github.com/typical-motion/FYT2024_vision)（原 FYT2024 Vision，作者 [@baiyeweiguang](https://github.com/baiyeweiguang)）**深度二次开发**而来。原项目在 [rm_vision](https://gitlab.com/rm_vision) 的基础上扩展了自瞄选板、能量机关识别与预测、哨兵定位、自主导航等功能；本仓库在继承上述能力的同时，针对实际比赛需求进行了大量重构与增强，**与原项目已形成明显区分**。
+本项目基于 [typical-motion/FYT2024_vision](https://github.com/typical-motion/FYT2024_vision)（原 FYT2024 Vision，作者 [@baiyeweiguang](https://github.com/baiyeweiguang)）**深度二次开发**而来。原项目在 [rm_vision](https://gitlab.com/rm_vision) 的基础上扩展了自瞄选板、能量机关识别与预测、哨兵定位、自主导航等功能；本仓库在继承上述能力的同时，针对实际比赛需求进行了大量重构与增强。
 
 ## 与上游的主要区别
 
