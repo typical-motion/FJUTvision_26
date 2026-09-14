@@ -1,47 +1,69 @@
-# FYT2024 Vision Project
+# FJUTvision_26
 
- 中南大学FYT战队24赛季视觉项目主仓库，该项目在原rm_vision项目上扩展了自瞄选板、能量机关识别与预测、哨兵定位、自主导航等功能，为RoboMaster机器人实现了一套通用的算法框架
+> 福建理工大学苍侠战队 · FJUT · 26 赛季 RoboMaster 视觉项目
 
+本项目基于 [typical-motion/FYT2024_vision](https://github.com/typical-motion/FYT2024_vision)（原 FYT2024 Vision，作者 [@baiyeweiguang](https://github.com/baiyeweiguang)）**深度二次开发**而来。原项目在 [rm_vision](https://gitlab.com/rm_vision) 的基础上扩展了自瞄选板、能量机关识别与预测、哨兵定位、自主导航等功能；本仓库在继承上述能力的同时，针对实际比赛需求进行了大量重构与增强，**与原项目已形成明显区分**。
+
+## 与上游的主要区别
+
+> 由 [@leezoneline](https://github.com/leezoneline) 主导，基于数十次提交持续迭代
+
+### 相机驱动（重构 + 工业级鲁棒性）
+- 新增**海康相机（Hikrobot MVS）**支持，与原有**大恒相机（Daheng）**并存
+- 相机节点整体重构，新增**心跳检测（heartbeat）**，断连后自动重连
+- 完整处理相机**断连、超时、锁死、循环重启**等异常场景
+- 修复海康 SDK **缓冲池耗尽**导致的崩溃问题
+- 新增内录视频 **recorder** 模块
+
+### 前哨站（哨兵）装甲板支持
+- 支持**前哨站（outpost）**装甲板识别与打击
+- 新增 `armor_id` 字段下发云台，支持按板选择
+- 新增自适应运动模型 `CONSTANT_ROTATION`，针对前哨站单独调节过程噪声
+
+### 自瞄解算增强
+- 引入 **TinyMPC** 模型预测控制（MPC）轨迹规划
+- 新增 **ManualCompensator** 手动补偿器（距离/高度二维查找表插值）
+- 抽象出 **ArmorPoseEstimator**（BA 优化）类
+- 增加**粒子滤波器**，为状态估计提供新选择
+- EKF 使用 Ceres 自动微分**自动求解 Jacobian**，并支持**自适应 Q/R**
+- 重写 **PnP 选解逻辑**
+- 自瞄解算改为**定时器回调，固定解算频率**
+
+### 串口与模式
+- 修复打符模式串口卡死问题
+- 新增 `ignore_enemy_2`、虚拟串口（`virtual_serial`）等选项
+- 支持敌方颜色**运行时动态切换**（SetMode 服务，无需重启）
+
+### 工程结构
+- 重组仓库目录为规范的 `src/` 布局，优化 CMake 结构
 
 ## 一、项目结构
 
-*表示不在本仓库中直接提供，这部分模块已在[CSU-RM-Sentry](https://github.com/baiyeweiguang/CSU-RM-Sentry)开源
-
 ```
 .
-│
-├── rm_bringup (启动及参数文件)
-│
-├── rm_robot_description (机器人urdf文件，坐标系的定义)
-│
-├── rm_interfaces (自定义msg、srv)
-│
-├── rm_hardware_driver
-│   ├── livox_ros_driver2 (*Livox激光雷达驱动)
-│   │
-│   ├── rm_camera_driver (相机驱动)
-│   │
-│   └── rm_serial_driver (串口驱动)
-│
-├── rm_auto_aim (自瞄算法)
-│
-├── rm_rune (打符算法)
-│
-├── rm_localization (*定位算法)
-│
-├── rm_perception (*感知算法)
-│
-├── rm_navigation (*导航算法)
-│
-├── rm_decision (*自主决策算法)
-│
-├── rm_utils (工具包) 
-│   ├── math (包括PnP解算、弹道补偿等)
-│   │
-│   └── logger (日志库)
-│
-└── rm_upstart (自启动配置)
+├── src/
+│   ├── rm_bringup            (启动及参数文件)
+│   ├── rm_robot_description  (机器人 urdf，坐标系定义)
+│   ├── rm_interfaces         (自定义 msg / srv)
+│   ├── rm_hardware_driver
+│   │   ├── rm_camera_driver  (相机驱动：海康 / 大恒 + 内录)
+│   │   └── rm_serial_driver  (串口驱动：步兵 / 哨兵协议)
+│   ├── rm_auto_aim
+│   │   ├── armor_detector    (装甲板识别)
+│   │   └── armor_solver      (解算 + EKF + MPC)
+│   ├── rm_rune
+│   │   ├── rune_detector     (能量机关识别)
+│   │   └── rune_solver       (能量机关预测)
+│   ├── rm_utils
+│   │   ├── math              (PnP、弹道补偿、EKF、粒子滤波、MPC 等)
+│   │   └── logger            (日志库)
+│   └── rm_upstart            (自启动配置)
+├── build/                    (编译产物)
+├── install/
+└── log/
 ```
+
+> 原项目中的 `rm_localization`（定位）、`rm_perception`（感知）、`rm_navigation`（导航）、`rm_decision`（自主决策）以及 `livox_ros_driver2`（Livox 激光雷达驱动）等模块未在本仓库直接提供，其中部分已在 [CSU-RM-Sentry](https://github.com/baiyeweiguang/CSU-RM-Sentry) 开源。
 
 ## 二、环境
 
@@ -50,7 +72,8 @@
 ### 1. 基础
 - Ubuntu 22.04
 - ROS2 Humble
-- 大恒相机驱动
+- 大恒相机驱动（Daheng Galaxy SDK）
+- 海康相机驱动（Hikrobot MVS SDK，可选，按实际相机型号安装）
 
 ### 2. 自瞄 
 - fmt库
@@ -178,7 +201,7 @@ systemctl disable rm
 
 > 赛季结束开源
 
-Maintainer : FYT Vision Group
+Maintainer : [leezoneline](https://github.com/leezoneline) · Typical Motion · FJUT · 26 赛季 RoboMaster 视觉组
 
 ```
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -196,22 +219,40 @@ limitations under the License.
 
 ## 致谢
 
-感谢这个赛季视觉组的每一个成员的付出，感谢以下开源项目：
+本项目是在原项目 [typical-motion/FYT2024_vision](https://github.com/typical-motion/FYT2024_vision) 基础上的二次开发成果，谨向以下项目与作者致以最诚挚的感谢：
 
-- [rm_vision](https://gitlab.com/rm_vision) rv是本项目的基础，提供了一套可参考的，规范、易用、高效的视觉算法框架
-- [rmoss](https://github.com/robomaster-oss/rmoss_core) rmoss项目为RoboMaster提供通用基础功能模块包，本项目的串口驱动模块基于rmoss_base进行开发
+**特别致谢**
+
+- 🙏 **原项目 FYT2024_vision**（[typical-motion/FYT2024_vision](https://github.com/typical-motion/FYT2024_vision)，作者 [@baiyeweiguang](https://github.com/baiyeweiguang)）—— 本项目在其之上深度开发，继承了其自瞄选板、能量机关识别与预测、哨兵定位、自主导航等核心框架与思想，是本项目得以快速迭代的坚实基础。
+- 🙏 **sp_vision26** —— 为本项目提供了重要参考与代码移植来源，在感知与工程实现思路上给予了诸多启发，特此致谢。
+
+**其他参考项目**
+
+感谢这个赛季视觉组的每一个成员的付出，以及以下开源项目：
+
+- [rm_vision](https://gitlab.com/rm_vision) rv 是本项目的基础，提供了一套可参考的，规范、易用、高效的视觉算法框架
+- [rmoss](https://github.com/robomaster-oss/rmoss_core) rmoss 项目为 RoboMaster 提供通用基础功能模块包，本项目的串口驱动模块基于 rmoss_base 进行开发
 - [沈阳航空航天大学TUP战队2022赛季步兵视觉开源](https://github.com/tup-robomaster/TUP-InfantryVision-2022) 为本项目的能量机关识别与预测算法提供了参考
 - [沈阳航空航天大学YOLOX关键点检测模型](https://github.com/tup-robomaster/TUP-NN-Train-2) 提供了本项目能量机关识别模型训练代码
 - [四川大学OpenVINO异步推理代码](https://github.com/Ericsii/rm_vision-OpenVINO) 提供了本项目能量机关识别模型部署的代码
-- [上海交通大学自适应扩展卡尔曼滤波](https://github.com/julyfun/rm.cv.fans/tree/main) 使用Ceres自动微分功能，自动计算Jacobian矩阵
+- [上海交通大学自适应扩展卡尔曼滤波](https://github.com/julyfun/rm.cv.fans/tree/main) 使用 Ceres 自动微分功能，自动计算 Jacobian 矩阵
 
 
 ## 更新日志
 
-- 参考上交开源，实现了EKF的自动求Jacobian矩阵
-- 增加了粒子滤波器，为状态估计提供新的选择
-- 修复了打符崩溃的问题（OpenVINO在推理时不能创建新的InferRequest，通过互斥锁解决）
-- 将自瞄解算修改为定时器回调，固定解算的频率
-- 增加手动补偿器ManualCompensator
-- 重写PnP选解逻辑
-- 修改了BA优化的代码，抽象出新的类ArmorPoseEstimator
+### 二次开发（leezoneline）
+
+- 重构相机驱动：新增海康相机（MVS）支持、心跳检测、断连/超时/锁死处理，修复 SDK 缓冲池耗尽崩溃
+- 新增内录视频 recorder 模块
+- 新增前哨站（outpost）装甲板支持，下发 `armor_id` 至云台
+- 引入 TinyMPC 模型预测控制轨迹规划
+- 增加 ManualCompensator 手动补偿器
+- 抽象出 ArmorPoseEstimator（BA 优化）类
+- 增加粒子滤波器，为状态估计提供新选择
+- EKF 参考上交开源实现 Ceres 自动求 Jacobian，并支持自适应 Q/R
+- 重写 PnP 选解逻辑
+- 将自瞄解算改为定时器回调，固定解算频率
+- 修复打符模式串口卡死问题
+- 修复打符崩溃问题（OpenVINO 推理时不能创建新的 InferRequest，通过互斥锁解决）
+- 新增 `ignore_enemy_2`、虚拟串口等选项，支持敌方颜色运行时动态切换
+- 优化仓库结构为规范的 `src/` 布局
